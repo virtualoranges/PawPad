@@ -13,52 +13,52 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 const BREEDS = {
   dogs: [
-    { name: 'Golden Retriever', care: 'Needs lots of "fetch" and human affection. Brush twice a week.', wiki: 'https://en.wikipedia.org/wiki/Golden_Retriever' },
-    { name: 'French Bulldog', care: 'Low energy, high personality. Keep facial wrinkles clean.', wiki: 'https://en.wikipedia.org/wiki/French_Bulldog' },
-    { name: 'Poodle', care: 'Genius-level smart. Professional grooming every 6 weeks.', wiki: 'https://en.wikipedia.org/wiki/Poodle' },
-    { name: 'German Shepherd', care: 'Needs a "job" to do. Excellent for active owners.', wiki: 'https://en.wikipedia.org/wiki/German_Shepherd' },
-    { name: 'Beagle', care: 'Follows their nose everywhere! Needs a fenced yard.', wiki: 'https://en.wikipedia.org/wiki/Beagle' },
-    { name: 'Dachshund', care: 'Small body, big heart. Watch their backs - no jumping!', wiki: 'https://en.wikipedia.org/wiki/Dachshund' },
-    { name: 'Siberian Husky', care: 'Talkative escape artists. Needs heavy exercise.', wiki: 'https://en.wikipedia.org/wiki/Siberian_Husky' },
-    { name: 'Labrador', care: "America's sweetheart. Watch their weight - they love food!", wiki: 'https://en.wikipedia.org/wiki/Labrador_Retriever' },
-    { name: 'Boxer', care: 'Stay puppies forever. Great with kids but very bouncy.', wiki: 'https://en.wikipedia.org/wiki/Boxer_(dog)' },
-    { name: 'Chihuahua', care: 'Tiny but mighty. Bonds intensely with one person.', wiki: 'https://en.wikipedia.org/wiki/Chihuahua_(dog)' },
-    { name: 'Great Dane', care: 'Gentle giants. Needs more couch space than exercise.', wiki: 'https://en.wikipedia.org/wiki/Great_Dane' },
-    { name: 'Shiba Inu', care: 'Independent and "cat-like." Gaining trust is a reward.', wiki: 'https://en.wikipedia.org/wiki/Shiba_Inu' },
-    { name: 'Australian Shepherd', care: 'High-energy herders. Need mental stimulation daily.', wiki: 'https://en.wikipedia.org/wiki/Australian_Shepherd' },
-    { name: 'Corgi', care: 'Short legs, big personality. Surprisingly athletic!', wiki: 'https://en.wikipedia.org/wiki/Welsh_Corgi' },
-    { name: 'Border Collie', care: 'Smartest breed. Needs challenging tasks and space.', wiki: 'https://en.wikipedia.org/wiki/Border_Collie' },
-    { name: 'Rottweiler', care: 'Loyal protectors. Early socialization is crucial.', wiki: 'https://en.wikipedia.org/wiki/Rottweiler' },
-    { name: 'Pomeranian', care: 'Fluffy little lions. Daily brushing prevents matting.', wiki: 'https://en.wikipedia.org/wiki/Pomeranian_dog' },
-    { name: 'Bulldog', care: 'Couch potato champions. Watch for breathing issues.', wiki: 'https://en.wikipedia.org/wiki/Bulldog' },
-    { name: 'Yorkshire Terrier', care: 'Tiny but brave. Hypoallergenic coat needs care.', wiki: 'https://en.wikipedia.org/wiki/Yorkshire_Terrier' },
-    { name: 'Doberman', care: 'Athletic and alert. Thrives with firm, kind training.', wiki: 'https://en.wikipedia.org/wiki/Dobermann' },
-    { name: 'Maltese', care: 'Gentle lap dogs. White coat needs regular grooming.', wiki: 'https://en.wikipedia.org/wiki/Maltese_dog' },
-    { name: 'Bernese Mountain Dog', care: 'Gentle giants. Love cold weather and families.', wiki: 'https://en.wikipedia.org/wiki/Bernese_Mountain_Dog' }
+    { name: 'Golden Retriever', care: 'Needs lots of "fetch" and human affection. Brush twice a week.' },
+    { name: 'French Bulldog', care: 'Low energy, high personality. Keep facial wrinkles clean.' },
+    { name: 'Poodle', care: 'Genius-level smart. Professional grooming every 6 weeks.' },
+    { name: 'German Shepherd', care: 'Needs a "job" to do. Excellent for active owners.' },
+    { name: 'Beagle', care: 'Follows their nose everywhere! Needs a fenced yard.' },
+    { name: 'Dachshund', care: 'Small body, big heart. Watch their backs - no jumping!' },
+    { name: 'Siberian Husky', care: 'Talkative escape artists. Needs heavy exercise.' },
+    { name: 'Labrador', care: "America's sweetheart. Watch their weight - they love food!" },
+    { name: 'Boxer', care: 'Stay puppies forever. Great with kids but very bouncy.' },
+    { name: 'Chihuahua', care: 'Tiny but mighty. Bonds intensely with one person.' },
+    { name: 'Great Dane', care: 'Gentle giants. Needs more couch space than exercise.' },
+    { name: 'Shiba Inu', care: 'Independent and "cat-like." Gaining trust is a reward.' },
+    { name: 'Australian Shepherd', care: 'High-energy herders. Need mental stimulation daily.' },
+    { name: 'Corgi', care: 'Short legs, big personality. Surprisingly athletic!' },
+    { name: 'Border Collie', care: 'Smartest breed. Needs challenging tasks and space.' },
+    { name: 'Rottweiler', care: 'Loyal protectors. Early socialization is crucial.' },
+    { name: 'Pomeranian', care: 'Fluffy little lions. Daily brushing prevents matting.' },
+    { name: 'Bulldog', care: 'Couch potato champions. Watch for breathing issues.' },
+    { name: 'Yorkshire Terrier', care: 'Tiny but brave. Hypoallergenic coat needs care.' },
+    { name: 'Doberman', care: 'Athletic and alert. Thrives with firm, kind training.' },
+    { name: 'Maltese', care: 'Gentle lap dogs. White coat needs regular grooming.' },
+    { name: 'Bernese Mountain Dog', care: 'Gentle giants. Love cold weather and families.' }
   ],
   cats: [
-    { name: 'Maine Coon', care: 'Gentle Giant. Loves water and follows you around.', wiki: 'https://en.wikipedia.org/wiki/Maine_Coon' },
-    { name: 'Siamese', care: 'Extremely talkative. Hates being left alone.', wiki: 'https://en.wikipedia.org/wiki/Siamese_cat' },
-    { name: 'Persian', care: 'Royalty. Daily grooming required for luxury coat.', wiki: 'https://en.wikipedia.org/wiki/Persian_cat' },
-    { name: 'Ragdoll', care: 'Goes limp with joy when held. Perfect for indoor living.', wiki: 'https://en.wikipedia.org/wiki/Ragdoll' },
-    { name: 'Bengal', care: 'Active athlete. Needs high climbing spots.', wiki: 'https://en.wikipedia.org/wiki/Bengal_cat' },
-    { name: 'Sphynx', care: 'Hairless but warm! Needs weekly baths for skin oils.', wiki: 'https://en.wikipedia.org/wiki/Sphynx_cat' },
-    { name: 'British Shorthair', care: 'Teddy Bear cat. Calm, easy-going, and independent.', wiki: 'https://en.wikipedia.org/wiki/British_Shorthair' },
-    { name: 'Scottish Fold', care: 'Famous folded ears. Very sweet-tempered.', wiki: 'https://en.wikipedia.org/wiki/Scottish_Fold' },
-    { name: 'Abyssinian', care: 'The "busy-body" of cats. Very curious.', wiki: 'https://en.wikipedia.org/wiki/Abyssinian_cat' },
-    { name: 'Russian Blue', care: 'Loyal and stunning silvery coat. Quiet voice.', wiki: 'https://en.wikipedia.org/wiki/Russian_Blue' },
-    { name: 'Burmese', care: 'Affectionate and people-oriented.', wiki: 'https://en.wikipedia.org/wiki/Burmese_cat' },
-    { name: 'Devon Rex', care: 'Mischievous and love perching on shoulders.', wiki: 'https://en.wikipedia.org/wiki/Devon_Rex' },
-    { name: 'Norwegian Forest Cat', care: 'Majestic and independent. Weatherproof double coat.', wiki: 'https://en.wikipedia.org/wiki/Norwegian_Forest_cat' },
-    { name: 'Birman', care: 'Blue-eyed beauties. Gentle and social companions.', wiki: 'https://en.wikipedia.org/wiki/Birman' },
-    { name: 'Oriental Shorthair', care: 'Elegant athletes. Very vocal and demanding.', wiki: 'https://en.wikipedia.org/wiki/Oriental_Shorthair' },
-    { name: 'Exotic Shorthair', care: 'Persian personality, short coat. Less grooming!', wiki: 'https://en.wikipedia.org/wiki/Exotic_Shorthair' },
-    { name: 'Tonkinese', care: 'Playful hybrids. Love interactive games.', wiki: 'https://en.wikipedia.org/wiki/Tonkinese_cat' },
-    { name: 'Savannah', care: 'Wild-looking adventurers. Need lots of space.', wiki: 'https://en.wikipedia.org/wiki/Savannah_cat' },
-    { name: 'American Shorthair', care: 'All-American classic. Easy-going and healthy.', wiki: 'https://en.wikipedia.org/wiki/American_Shorthair' },
-    { name: 'Chartreux', care: 'Quiet observers. Smile-like expression.', wiki: 'https://en.wikipedia.org/wiki/Chartreux' },
-    { name: 'Turkish Angora', care: 'Graceful and energetic. Love being center stage.', wiki: 'https://en.wikipedia.org/wiki/Turkish_Angora' },
-    { name: 'Manx', care: 'Tailless wonders. Excellent hunters and jumpers.', wiki: 'https://en.wikipedia.org/wiki/Manx_cat' }
+    { name: 'Maine Coon', care: 'Gentle Giant. Loves water and follows you around.' },
+    { name: 'Siamese', care: 'Extremely talkative. Hates being left alone.' },
+    { name: 'Persian', care: 'Royalty. Daily grooming required for luxury coat.' },
+    { name: 'Ragdoll', care: 'Goes limp with joy when held. Perfect for indoor living.' },
+    { name: 'Bengal', care: 'Active athlete. Needs high climbing spots.' },
+    { name: 'Sphynx', care: 'Hairless but warm! Needs weekly baths for skin oils.' },
+    { name: 'British Shorthair', care: 'Teddy Bear cat. Calm, easy-going, and independent.' },
+    { name: 'Scottish Fold', care: 'Famous folded ears. Very sweet-tempered.' },
+    { name: 'Abyssinian', care: 'The "busy-body" of cats. Very curious.' },
+    { name: 'Russian Blue', care: 'Loyal and stunning silvery coat. Quiet voice.' },
+    { name: 'Burmese', care: 'Affectionate and people-oriented.' },
+    { name: 'Devon Rex', care: 'Mischievous and love perching on shoulders.' },
+    { name: 'Norwegian Forest Cat', care: 'Majestic and independent. Weatherproof double coat.' },
+    { name: 'Birman', care: 'Blue-eyed beauties. Gentle and social companions.' },
+    { name: 'Oriental Shorthair', care: 'Elegant athletes. Very vocal and demanding.' },
+    { name: 'Exotic Shorthair', care: 'Persian personality, short coat. Less grooming!' },
+    { name: 'Tonkinese', care: 'Playful hybrids. Love interactive games.' },
+    { name: 'Savannah', care: 'Wild-looking adventurers. Need lots of space.' },
+    { name: 'American Shorthair', care: 'All-American classic. Easy-going and healthy.' },
+    { name: 'Chartreux', care: 'Quiet observers. Smile-like expression.' },
+    { name: 'Turkish Angora', care: 'Graceful and energetic. Love being center stage.' },
+    { name: 'Manx', care: 'Tailless wonders. Excellent hunters and jumpers.' }
   ]
 };
 
@@ -882,19 +882,11 @@ const PawPad = () => {
                       ) : (
                         <Cat size={24} className="text-[#FF7A35]" />
                       )}
-                      <div className="flex-1">
+                      <div>
                         <h4 className="font-black text-[#5C544E] mb-1">{selectedBreed}</h4>
-                        <p className="text-sm text-[#8A7560] leading-relaxed italic mb-3">
+                        <p className="text-sm text-[#8A7560] leading-relaxed italic">
                           "{BREEDS[petType].find(b => b.name === selectedBreed)?.care}"
                         </p>
-                        <a 
-                          href={BREEDS[petType].find(b => b.name === selectedBreed)?.wiki}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-xs font-bold text-[#f9a57a] hover:text-[#e88b5f] transition-colors cursor-pointer"
-                        >
-                          Learn more <ChevronRight size={14} />
-                        </a>
                       </div>
                     </div>
                   </motion.div>
