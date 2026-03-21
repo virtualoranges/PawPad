@@ -70,7 +70,7 @@ const PawPad = () => {
       {/* Navbar */}
       <nav className="p-5 flex justify-between items-center bg-white/70 backdrop-blur-lg sticky top-0 z-50 border-b border-stone-100">
         <h1 className="text-xl font-black tracking-tighter flex items-center gap-2 text-[#E8621A]">
-          <Heart size={20} fill="#E8621A" /> PAWPAD
+          <Heart size={20} fill="#D6A77A" /> PAWPAD
         </h1>
         <div className="flex gap-3 relative">
           <button 

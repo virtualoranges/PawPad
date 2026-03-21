@@ -6,8 +6,7 @@ import {
   Camera, MapPin, Phone, AlertCircle, TrendingUp, Award,
   Clock, Utensils, Dumbbell, Brain, ThermometerSun, Moon,
   Sun, Apple, Pill, FileText, Star, ChevronRight, X,
-  Home, BarChart3, ClipboardList, Users, Image, Upload, Trash2,
-  Edit, Check, Download
+  Home, BarChart3, ClipboardList, Users
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -77,6 +76,7 @@ const REMINDERS = [
 
 const PawPad = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState('login');
   const [authForm, setAuthForm] = useState({ email: '', password: '', name: '' });
   
@@ -90,11 +90,6 @@ const PawPad = () => {
   const [newAct, setNewAct] = useState("");
   const [currentUser, setCurrentUser] = useState(null);
   
-  // Photo Gallery State
-  const [photos, setPhotos] = useState([]);
-  const [selectedPhoto, setSelectedPhoto] = useState(null);
-  
-  // Pet Profile State
   const [petProfile, setPetProfile] = useState({
     name: '',
     breed: '',
@@ -104,29 +99,14 @@ const PawPad = () => {
     photo: 'https://api.dicebear.com/7.x/lorelei/svg?seed=Pet'
   });
 
-  // Health Tracking State
   const [weightHistory, setWeightHistory] = useState([]);
-  const [showWeightModal, setShowWeightModal] = useState(false);
-  const [newWeight, setNewWeight] = useState({ weight: '', date: new Date().toISOString().split('T')[0] });
-  
   const [vaccinations, setVaccinations] = useState([
     { id: 1, name: 'Rabies', date: '2024-01-15', nextDue: '2025-01-15', done: true },
     { id: 2, name: 'DHPP', date: '', nextDue: '2024-12-01', done: false },
   ]);
-  
   const [medications, setMedications] = useState([
     { id: 1, name: 'Heartworm Prevention', frequency: 'Monthly', lastGiven: '2024-03-01' }
   ]);
-  
-  const [showMedicationModal, setShowMedicationModal] = useState(false);
-  const [newMedication, setNewMedication] = useState({ name: '', frequency: 'Daily', lastGiven: new Date().toISOString().split('T')[0] });
-  
-  // Emergency Contacts State
-  const [emergencyContacts, setEmergencyContacts] = useState({
-    primaryVet: { name: '', phone: '', address: '' },
-    emergencyClinic: { name: '', phone: '', address: '' }
-  });
-  const [editingContact, setEditingContact] = useState(null);
   
   const [supplies, setSupplies] = useState([
     { id: 1, text: "Premium Kibble Stock", checked: false },
@@ -137,30 +117,22 @@ const PawPad = () => {
   ]);
 
   const [currentReminderIndex, setCurrentReminderIndex] = useState(0);
-  const [showSuccessToast, setShowSuccessToast] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
 
   useEffect(() => {
     const savedUser = localStorage.getItem('pawpad_user');
     const savedPet = localStorage.getItem('pawpad_pet_profile');
     const savedActivities = localStorage.getItem('pawpad_activities');
-    const savedPhotos = localStorage.getItem('pawpad_photos');
-    const savedWeight = localStorage.getItem('pawpad_weight');
-    const savedVaccinations = localStorage.getItem('pawpad_vaccinations');
-    const savedMedications = localStorage.getItem('pawpad_medications');
-    const savedContacts = localStorage.getItem('pawpad_emergency_contacts');
     
     if (savedUser) {
       setCurrentUser(JSON.parse(savedUser));
       setIsAuthenticated(true);
     }
-    if (savedPet) setPetProfile(JSON.parse(savedPet));
-    if (savedActivities) setActivities(JSON.parse(savedActivities));
-    if (savedPhotos) setPhotos(JSON.parse(savedPhotos));
-    if (savedWeight) setWeightHistory(JSON.parse(savedWeight));
-    if (savedVaccinations) setVaccinations(JSON.parse(savedVaccinations));
-    if (savedMedications) setMedications(JSON.parse(savedMedications));
-    if (savedContacts) setEmergencyContacts(JSON.parse(savedContacts));
+    if (savedPet) {
+      setPetProfile(JSON.parse(savedPet));
+    }
+    if (savedActivities) {
+      setActivities(JSON.parse(savedActivities));
+    }
   }, []);
 
   useEffect(() => {
@@ -168,33 +140,6 @@ const PawPad = () => {
       localStorage.setItem('pawpad_activities', JSON.stringify(activities));
     }
   }, [activities]);
-
-  useEffect(() => {
-    if (weightHistory.length > 0) {
-      localStorage.setItem('pawpad_weight', JSON.stringify(weightHistory));
-    }
-  }, [weightHistory]);
-
-  useEffect(() => {
-    localStorage.setItem('pawpad_vaccinations', JSON.stringify(vaccinations));
-  }, [vaccinations]);
-
-  useEffect(() => {
-    localStorage.setItem('pawpad_medications', JSON.stringify(medications));
-  }, [medications]);
-
-  useEffect(() => {
-    localStorage.setItem('pawpad_emergency_contacts', JSON.stringify(emergencyContacts));
-  }, [emergencyContacts]);
-
-  useEffect(() => {
-    if (showSuccessToast) {
-      const timer = setTimeout(() => {
-        setShowSuccessToast(false);
-      }, 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [showSuccessToast]);
 
   useEffect(() => {
     if (showNotifs) {
@@ -216,6 +161,7 @@ const PawPad = () => {
       localStorage.setItem('pawpad_user', JSON.stringify(newUser));
       setCurrentUser(newUser);
       setIsAuthenticated(true);
+      setShowAuthModal(false);
       setAuthForm({ email: '', password: '', name: '' });
     } else {
       const user = {
@@ -226,6 +172,7 @@ const PawPad = () => {
       localStorage.setItem('pawpad_user', JSON.stringify(user));
       setCurrentUser(user);
       setIsAuthenticated(true);
+      setShowAuthModal(false);
       setAuthForm({ email: '', password: '', name: '' });
     }
   };
@@ -235,94 +182,6 @@ const PawPad = () => {
     setCurrentUser(null);
     setIsAuthenticated(false);
     setShowProfile(false);
-  };
-
-  // Photo Gallery Functions
-  const handlePhotoUpload = (e) => {
-    const files = Array.from(e.target.files);
-    
-    // Convert files to base64 for localStorage persistence
-    Promise.all(
-      files.map(file => {
-        return new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onloadend = () => {
-            resolve({
-              id: Date.now() + Math.random(),
-              url: reader.result, // base64 string
-              date: new Date().toISOString(),
-              caption: ''
-            });
-          };
-          reader.readAsDataURL(file);
-        });
-      })
-    ).then(newPhotos => {
-      const updatedPhotos = [...newPhotos, ...photos];
-      setPhotos(updatedPhotos);
-      localStorage.setItem('pawpad_photos', JSON.stringify(updatedPhotos));
-    });
-  };
-
-  const deletePhoto = (id) => {
-    const updatedPhotos = photos.filter(p => p.id !== id);
-    setPhotos(updatedPhotos);
-    localStorage.setItem('pawpad_photos', JSON.stringify(updatedPhotos));
-    setSelectedPhoto(null);
-  };
-
-  // Pet Profile Photo Change
-  const handleProfilePhotoChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPetProfile({ ...petProfile, photo: reader.result });
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  // Weight History Functions
-  const addWeightEntry = () => {
-    if (newWeight.weight && newWeight.date) {
-      setWeightHistory([
-        { id: Date.now(), weight: parseFloat(newWeight.weight), date: newWeight.date },
-        ...weightHistory
-      ]);
-      setNewWeight({ weight: '', date: new Date().toISOString().split('T')[0] });
-      setShowWeightModal(false);
-    }
-  };
-
-  // Vaccination Functions
-  const toggleVaccination = (id) => {
-    setVaccinations(vaccinations.map(vax => 
-      vax.id === id 
-        ? { ...vax, done: !vax.done, date: !vax.done ? new Date().toISOString().split('T')[0] : '' }
-        : vax
-    ));
-  };
-
-  // Medication Functions
-  const addMedication = () => {
-    if (newMedication.name) {
-      setMedications([
-        ...medications,
-        { id: Date.now(), ...newMedication }
-      ]);
-      setNewMedication({ name: '', frequency: 'Daily', lastGiven: new Date().toISOString().split('T')[0] });
-      setShowMedicationModal(false);
-    }
-  };
-
-  const deleteMedication = (id) => {
-    setMedications(medications.filter(m => m.id !== id));
-  };
-
-  // Emergency Contacts Functions
-  const saveEmergencyContact = (type) => {
-    setEditingContact(null);
   };
 
   const toggleSupply = (id) => {
@@ -343,28 +202,14 @@ const PawPad = () => {
     }
   };
 
-  const deleteActivity = (index) => {
-    setActivities(activities.filter((_, i) => i !== index));
-  };
-
   const savePetProfile = () => {
     localStorage.setItem('pawpad_pet_profile', JSON.stringify(petProfile));
-    setToastMessage('Pet profile saved! 🐾');
-    setShowSuccessToast(true);
-  };
-
-  const navigatePhoto = (direction) => {
-    const currentIndex = photos.findIndex(p => p.id === selectedPhoto.id);
-    if (direction === 'next' && currentIndex < photos.length - 1) {
-      setSelectedPhoto(photos[currentIndex + 1]);
-    } else if (direction === 'prev' && currentIndex > 0) {
-      setSelectedPhoto(photos[currentIndex - 1]);
-    }
+    alert('Pet profile saved!');
   };
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#FDFBF7] via-[#EDE0CE] to-[#f9a57a]/10 flex items-center justify-center p-6">
+      <div className="min-h-screen bg-gradient-to-br from-[#FDFBF7] via-[#EDE0CE] to-[#E8621A]/10 flex items-center justify-center p-6">
         <motion.div 
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
@@ -373,7 +218,7 @@ const PawPad = () => {
           <div className="text-center mb-8">
             <div className="flex justify-center mb-4">
               <div className="bg-white p-6 rounded-[2rem] shadow-xl">
-                <Heart size={48} className="text-[#f9a57a]" fill="#f9a57a" />
+                <Heart size={48} className="text-[#E8621A]" fill="#E8621A" />
               </div>
             </div>
             <h1 className="text-4xl font-black text-[#5C544E] mb-2">PAWPAD</h1>
@@ -384,9 +229,9 @@ const PawPad = () => {
             <div className="flex gap-2 mb-8">
               <button
                 onClick={() => setAuthMode('login')}
-                className={`flex-1 py-3 rounded-2xl font-bold text-sm transition-all cursor-pointer ${
+                className={`flex-1 py-3 rounded-2xl font-bold text-sm transition-all ${
                   authMode === 'login' 
-                    ? 'bg-[#f9a57a] text-white shadow-lg' 
+                    ? 'bg-[#E8621A] text-white shadow-lg' 
                     : 'bg-stone-100 text-stone-400'
                 }`}
               >
@@ -394,9 +239,9 @@ const PawPad = () => {
               </button>
               <button
                 onClick={() => setAuthMode('register')}
-                className={`flex-1 py-3 rounded-2xl font-bold text-sm transition-all cursor-pointer ${
+                className={`flex-1 py-3 rounded-2xl font-bold text-sm transition-all ${
                   authMode === 'register' 
-                    ? 'bg-[#f9a57a] text-white shadow-lg' 
+                    ? 'bg-[#E8621A] text-white shadow-lg' 
                     : 'bg-stone-100 text-stone-400'
                 }`}
               >
@@ -445,7 +290,7 @@ const PawPad = () => {
 
               <button
                 type="submit"
-                className="w-full bg-[#f9a57a] hover:bg-[#e88b5f] text-white py-4 rounded-2xl font-black text-sm uppercase tracking-wider shadow-lg shadow-[#f9a57a]/30 transition-all active:scale-95"
+                className="w-full bg-[#E8621A] hover:bg-[#D55614] text-white py-4 rounded-2xl font-black text-sm uppercase tracking-wider shadow-lg shadow-[#E8621A]/30 transition-all active:scale-95"
               >
                 {authMode === 'login' ? 'Sign In' : 'Create Account'}
               </button>
@@ -455,7 +300,7 @@ const PawPad = () => {
               {authMode === 'login' ? "Don't have an account? " : "Already have an account? "}
               <button
                 onClick={() => setAuthMode(authMode === 'login' ? 'register' : 'login')}
-                className="text-[#f9a57a] font-bold"
+                className="text-[#E8621A] font-bold"
               >
                 {authMode === 'login' ? 'Register' : 'Sign In'}
               </button>
@@ -467,18 +312,19 @@ const PawPad = () => {
   }
 
   const currentReminder = REMINDERS[currentReminderIndex];
+  const ReminderIcon = currentReminder.icon;
 
   return (
     <div className="min-h-screen bg-[#FDFBF7] text-[#423D38] font-sans pb-24">
       <nav className="p-5 flex justify-between items-center bg-white/70 backdrop-blur-lg sticky top-0 z-50 border-b border-stone-100 shadow-sm">
-        <h1 className="text-xl font-black tracking-tighter flex items-center gap-2 text-[#f9a57a]">
-          <Heart size={20} fill="#f9a57a" /> PAWPAD
+        <h1 className="text-xl font-black tracking-tighter flex items-center gap-2 text-[#E8621A]">
+          <Heart size={20} fill="#E8621A" /> PAWPAD
         </h1>
         <div className="flex gap-3 relative">
           <button 
             onClick={() => {setShowNotifs(!showNotifs); setShowProfile(false);}}
             className={`p-2 rounded-full shadow-sm border transition-all ${
-              showNotifs ? 'bg-[#f9a57a] border-[#f9a57a] text-white' : 'bg-white border-stone-100'
+              showNotifs ? 'bg-[#E8621A] border-[#E8621A] text-white' : 'bg-white border-stone-100'
             }`}
           >
             <Bell size={18} />
@@ -509,13 +355,14 @@ const PawPad = () => {
                     return (
                       <motion.div
                         key={idx}
+                        initial={{ opacity: 0.5, scale: 0.95 }}
                         animate={{ 
                           opacity: isActive ? 1 : 0.5, 
                           scale: isActive ? 1 : 0.95,
                           backgroundColor: isActive ? '#FEF7EE' : 'transparent'
                         }}
                         className={`p-4 rounded-2xl flex items-center gap-3 transition-all ${
-                          isActive ? 'border-2 border-[#f9a57a]' : 'border border-transparent'
+                          isActive ? 'border-2 border-[#E8621A]' : 'border border-transparent'
                         }`}
                       >
                         <Icon size={20} className={reminder.color} />
@@ -526,7 +373,7 @@ const PawPad = () => {
                           <motion.div
                             initial={{ scale: 0 }}
                             animate={{ scale: 1 }}
-                            className="w-2 h-2 bg-[#f9a57a] rounded-full"
+                            className="w-2 h-2 bg-[#E8621A] rounded-full"
                           />
                         )}
                       </motion.div>
@@ -550,14 +397,14 @@ const PawPad = () => {
                   <p className="text-xs text-stone-400">{currentUser?.email}</p>
                 </div>
                 <button 
-                  onClick={() => {setCurrentTab('profile'); setShowProfile(false);}}
-                  className="w-full text-left p-3 hover:bg-stone-50 rounded-xl flex items-center gap-3 text-sm font-bold text-[#5C544E] cursor-pointer"
+                  onClick={() => setCurrentTab('profile')}
+                  className="w-full text-left p-3 hover:bg-stone-50 rounded-xl flex items-center gap-3 text-sm font-bold text-[#5C544E]"
                 >
                   <Settings size={16}/> Profile Settings
                 </button>
                 <button 
                   onClick={handleLogout}
-                  className="w-full text-left p-3 hover:bg-red-50 rounded-xl flex items-center gap-3 text-sm font-bold text-red-500 cursor-pointer"
+                  className="w-full text-left p-3 hover:bg-red-50 rounded-xl flex items-center gap-3 text-sm font-bold text-red-500"
                 >
                   <LogOut size={16}/> Logout
                 </button>
@@ -571,19 +418,18 @@ const PawPad = () => {
         <div className="flex gap-2 mb-8 overflow-x-auto pb-2">
           {[
             { id: 'home', label: 'Home', icon: Home },
-            { id: 'mypics', label: 'My Pics', icon: Camera },
-            { id: 'profile', label: 'Profile', icon: User },
             { id: 'health', label: 'Health', icon: Stethoscope },
             { id: 'stats', label: 'Stats', icon: BarChart3 },
+            { id: 'profile', label: 'Profile', icon: User },
           ].map(tab => {
             const Icon = tab.icon;
             return (
               <button
                 key={tab.id}
                 onClick={() => setCurrentTab(tab.id)}
-                className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-xs font-black uppercase tracking-wider transition-all whitespace-nowrap cursor-pointer ${
+                className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-xs font-black uppercase tracking-wider transition-all whitespace-nowrap ${
                   currentTab === tab.id
-                    ? 'bg-[#f9a57a] text-white shadow-lg shadow-[#f9a57a]/30'
+                    ? 'bg-[#E8621A] text-white shadow-lg shadow-[#E8621A]/30'
                     : 'bg-white text-stone-400 border border-stone-100'
                 }`}
               >
@@ -606,7 +452,7 @@ const PawPad = () => {
                 </p>
                 <button 
                   onClick={() => setShowModal(true)}
-                  className="bg-[#fadfa5] hover:bg-[#f8d78f] text-[#5C544E] px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-[#fadfa5]/30 flex items-center gap-2 transition-all active:scale-95 cursor-pointer"
+                  className="bg-[#E8621A] hover:bg-[#D55614] text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-[#E8621A]/30 flex items-center gap-2 transition-all active:scale-95"
                 >
                   <Plus size={18} /> New Activity
                 </button>
@@ -627,7 +473,7 @@ const PawPad = () => {
               <div className="flex gap-3 mb-6">
                 <button 
                   onClick={() => {setPetType('dogs'); setSelectedBreed('');}} 
-                  className={`flex-1 py-4 rounded-2xl text-xs font-black tracking-widest transition-all cursor-pointer ${
+                  className={`flex-1 py-4 rounded-2xl text-xs font-black tracking-widest transition-all ${
                     petType === 'dogs' 
                       ? 'bg-[#00E5DC] text-white shadow-md' 
                       : 'bg-white text-stone-300 border border-stone-100'
@@ -638,7 +484,7 @@ const PawPad = () => {
                 </button>
                 <button 
                   onClick={() => {setPetType('cats'); setSelectedBreed('');}} 
-                  className={`flex-1 py-4 rounded-2xl text-xs font-black tracking-widest transition-all cursor-pointer ${
+                  className={`flex-1 py-4 rounded-2xl text-xs font-black tracking-widest transition-all ${
                     petType === 'cats' 
                       ? 'bg-[#FF7A35] text-white shadow-md' 
                       : 'bg-white text-stone-300 border border-stone-100'
@@ -651,7 +497,7 @@ const PawPad = () => {
               
               <div className="relative">
                 <select 
-                  className="w-full p-5 rounded-3xl bg-white border-2 border-stone-200 shadow-sm text-sm font-bold outline-none appearance-none cursor-pointer focus:border-[#f9a57a] transition-all"
+                  className="w-full p-5 rounded-3xl bg-white border-2 border-stone-200 shadow-sm text-sm font-bold outline-none appearance-none cursor-pointer focus:border-[#E8621A] transition-all"
                   value={selectedBreed}
                   onChange={(e) => setSelectedBreed(e.target.value)}
                 >
@@ -724,51 +570,12 @@ const PawPad = () => {
               </div>
             </section>
 
-            <section className="mb-10">
-              <h3 className="text-xs font-black text-[#8A7560] uppercase tracking-wider mb-4 flex items-center gap-2">
-                <ClipboardList size={14} /> Activity Timeline
-              </h3>
-              {activities.length === 0 && (
-                <div className="text-center py-12 bg-white rounded-3xl border-2 border-dashed border-stone-200">
-                  <Calendar className="mx-auto mb-3 text-stone-300" size={40} />
-                  <p className="text-sm text-stone-400 font-bold">No activities yet</p>
-                  <p className="text-xs text-stone-300">Start logging your pet's day!</p>
-                </div>
-              )}
-              <div className="space-y-3">
-                {activities.slice(0, 10).map((a, i) => (
-                  <motion.div 
-                    initial={{ x: -20, opacity: 0 }} 
-                    animate={{ x: 0, opacity: 1 }} 
-                    key={i} 
-                    className="flex justify-between items-center p-5 bg-white rounded-3xl border border-stone-100 shadow-sm hover:shadow-md transition-all group"
-                  >
-                    <div className="flex-1">
-                      <span className="text-sm font-bold text-[#423D38] block">{a.text}</span>
-                      <span className="text-xs text-stone-400 font-medium">{a.date}</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs font-black text-[#f9a57a] bg-orange-50 px-3 py-1.5 rounded-xl">
-                        {a.time}
-                      </span>
-                      <button
-                        onClick={() => deleteActivity(i)}
-                        className="p-2 opacity-0 group-hover:opacity-100 hover:bg-red-50 rounded-xl text-red-400 transition-all"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-            </section>
-
-            <section className="bg-white p-8 rounded-[2.5rem] shadow-md border-2 border-[#EDE0CE]">
+            <section className="bg-white p-8 rounded-[2.5rem] shadow-md border-2 border-[#EDE0CE] mb-10">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-xs font-black text-[#8A7560] uppercase tracking-wider flex items-center gap-2">
                   <ShoppingCart size={14} /> Supply Checklist
                 </h3>
-                <span className="text-xs font-bold text-[#f9a57a]">
+                <span className="text-xs font-bold text-[#E8621A]">
                   {supplies.filter(s => s.checked).length}/{supplies.length}
                 </span>
               </div>
@@ -793,127 +600,37 @@ const PawPad = () => {
                 ))}
               </div>
             </section>
-          </motion.div>
-        )}
 
-        {currentTab === 'mypics' && (
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-black text-[#5C544E]">My Pet Photos</h2>
-              <label className="px-6 py-3 bg-[#f9a57a] text-white rounded-2xl text-sm font-black cursor-pointer hover:bg-[#e88b5f] transition-all shadow-lg shadow-[#f9a57a]/30 flex items-center gap-2">
-                <Upload size={16} />
-                Upload
-                <input 
-                  type="file" 
-                  accept="image/*" 
-                  multiple 
-                  onChange={handlePhotoUpload} 
-                  className="hidden" 
-                />
-              </label>
-            </div>
-
-            {photos.length === 0 ? (
-              <div className="text-center py-20 bg-gradient-to-br from-stone-50 to-stone-100 rounded-[3rem] border-2 border-dashed border-stone-200">
-                <Camera size={64} className="mx-auto text-stone-300 mb-4" />
-                <h3 className="text-xl font-black text-stone-400 mb-2">No Photos Yet</h3>
-                <p className="text-sm text-stone-400 mb-6">Start capturing precious moments!</p>
-                <label className="inline-flex items-center gap-2 px-8 py-4 bg-[#f9a57a] text-white rounded-2xl text-sm font-black cursor-pointer hover:bg-[#e88b5f] transition-all">
-                  <Camera size={18} />
-                  Add First Photo
-                  <input 
-                    type="file" 
-                    accept="image/*" 
-                    multiple 
-                    onChange={handlePhotoUpload} 
-                    className="hidden" 
-                  />
-                </label>
-              </div>
-            ) : (
-              <div className="grid grid-cols-3 gap-3">
-                {photos.map(photo => (
-                  <motion.div
-                    key={photo.id}
-                    initial={{ scale: 0, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    className="aspect-square rounded-2xl overflow-hidden cursor-pointer relative group shadow-md hover:shadow-xl transition-all"
-                    onClick={() => setSelectedPhoto(photo)}
+            <section>
+              <h3 className="text-xs font-black text-[#8A7560] uppercase tracking-wider mb-4 flex items-center gap-2">
+                <ClipboardList size={14} /> Activity Timeline
+              </h3>
+              {activities.length === 0 && (
+                <div className="text-center py-12 bg-white rounded-3xl border-2 border-dashed border-stone-200">
+                  <Calendar className="mx-auto mb-3 text-stone-300" size={40} />
+                  <p className="text-sm text-stone-400 font-bold">No activities yet</p>
+                  <p className="text-xs text-stone-300">Start logging your pet's day!</p>
+                </div>
+              )}
+              <div className="space-y-3">
+                {activities.slice(0, 10).map((a, i) => (
+                  <motion.div 
+                    initial={{ x: -20, opacity: 0 }} 
+                    animate={{ x: 0, opacity: 1 }} 
+                    key={i} 
+                    className="flex justify-between items-center p-5 bg-white rounded-3xl border border-stone-100 shadow-sm hover:shadow-md transition-all"
                   >
-                    <img src={photo.url} alt="Pet" className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-3">
-                      <span className="text-white text-xs font-bold">
-                        {new Date(photo.date).toLocaleDateString()}
-                      </span>
+                    <div className="flex-1">
+                      <span className="text-sm font-bold text-[#423D38] block">{a.text}</span>
+                      <span className="text-xs text-stone-400 font-medium">{a.date}</span>
                     </div>
+                    <span className="text-xs font-black text-[#E8621A] bg-orange-50 px-3 py-1.5 rounded-xl">
+                      {a.time}
+                    </span>
                   </motion.div>
                 ))}
               </div>
-            )}
-
-            <AnimatePresence>
-              {selectedPhoto && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/90">
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    onClick={() => setSelectedPhoto(null)}
-                    className="absolute inset-0"
-                  />
-                  <motion.div
-                    initial={{ scale: 0.8, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    exit={{ scale: 0.8, opacity: 0 }}
-                    className="relative w-full max-w-2xl z-10"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <button
-                      onClick={() => setSelectedPhoto(null)}
-                      className="absolute -top-12 right-0 p-2 text-white hover:bg-white/10 rounded-full transition-colors"
-                    >
-                      <X size={24} />
-                    </button>
-                    
-                    {/* Navigation Arrows */}
-                    {photos.length > 1 && (
-                      <>
-                        {photos.findIndex(p => p.id === selectedPhoto.id) > 0 && (
-                          <button
-                            onClick={() => navigatePhoto('prev')}
-                            className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-16 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full transition-all"
-                          >
-                            <ChevronRight size={24} className="rotate-180" />
-                          </button>
-                        )}
-                        {photos.findIndex(p => p.id === selectedPhoto.id) < photos.length - 1 && (
-                          <button
-                            onClick={() => navigatePhoto('next')}
-                            className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-16 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full transition-all"
-                          >
-                            <ChevronRight size={24} />
-                          </button>
-                        )}
-                      </>
-                    )}
-                    
-                    <img 
-                      src={selectedPhoto.url} 
-                      alt="Pet" 
-                      className="w-full h-auto max-h-[80vh] object-contain rounded-3xl shadow-2xl" 
-                    />
-                    <div className="flex gap-3 justify-center mt-6">
-                      <button 
-                        onClick={() => deletePhoto(selectedPhoto.id)}
-                        className="px-6 py-3 bg-red-500 text-white rounded-2xl font-bold text-sm flex items-center gap-2 hover:bg-red-600 transition-all"
-                      >
-                        <Trash2 size={16} /> Delete
-                      </button>
-                    </div>
-                  </motion.div>
-                </div>
-              )}
-            </AnimatePresence>
+            </section>
           </motion.div>
         )}
 
@@ -930,16 +647,11 @@ const PawPad = () => {
                   <div key={vax.id} className="p-4 bg-stone-50 rounded-2xl">
                     <div className="flex items-center justify-between mb-2">
                       <span className="font-black text-[#423D38]">{vax.name}</span>
-                      <button
-                        onClick={() => toggleVaccination(vax.id)}
-                        className="transition-transform hover:scale-110 cursor-pointer"
-                      >
-                        {vax.done ? (
-                          <CheckCircle2 size={24} className="text-green-500" />
-                        ) : (
-                          <Circle size={24} className="text-stone-300 hover:text-green-400" />
-                        )}
-                      </button>
+                      {vax.done ? (
+                        <CheckCircle2 size={20} className="text-green-500" />
+                      ) : (
+                        <AlertCircle size={20} className="text-orange-500" />
+                      )}
                     </div>
                     <div className="text-xs text-stone-500 font-medium">
                       {vax.done ? (
@@ -954,69 +666,32 @@ const PawPad = () => {
             </section>
 
             <section className="bg-white p-8 rounded-[2.5rem] shadow-md border-2 border-[#EDE0CE] mb-6">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xs font-black text-[#8A7560] uppercase tracking-wider flex items-center gap-2">
-                  <Pill size={14} /> Active Medications
-                </h3>
-                <button
-                  onClick={() => setShowMedicationModal(true)}
-                  className="px-4 py-2 bg-[#f9a57a] text-white rounded-xl text-xs font-black hover:bg-[#e88b5f] transition-all"
-                >
-                  <Plus size={14} className="inline mr-1" />
-                  Add
-                </button>
-              </div>
+              <h3 className="text-xs font-black text-[#8A7560] uppercase tracking-wider mb-6 flex items-center gap-2">
+                <Pill size={14} /> Active Medications
+              </h3>
               <div className="space-y-4">
                 {medications.map(med => (
-                  <div key={med.id} className="p-4 bg-purple-50/30 rounded-2xl border border-purple-100 flex justify-between items-start">
-                    <div className="flex-1">
-                      <div className="font-black text-[#423D38] mb-1">{med.name}</div>
-                      <div className="text-xs text-stone-500 font-medium">
-                        {med.frequency} - Last given: {med.lastGiven}
-                      </div>
+                  <div key={med.id} className="p-4 bg-purple-50/30 rounded-2xl border border-purple-100">
+                    <div className="font-black text-[#423D38] mb-1">{med.name}</div>
+                    <div className="text-xs text-stone-500 font-medium">
+                      {med.frequency} - Last given: {med.lastGiven}
                     </div>
-                    <button
-                      onClick={() => deleteMedication(med.id)}
-                      className="p-2 hover:bg-red-50 rounded-xl text-red-400 transition-colors"
-                    >
-                      <Trash2 size={16} />
-                    </button>
                   </div>
                 ))}
               </div>
             </section>
 
             <section className="bg-white p-8 rounded-[2.5rem] shadow-md border-2 border-[#EDE0CE]">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xs font-black text-[#8A7560] uppercase tracking-wider flex items-center gap-2">
-                  <Scale size={14} /> Weight History
-                </h3>
-                <button
-                  onClick={() => setShowWeightModal(true)}
-                  className="px-4 py-2 bg-[#f9a57a] text-white rounded-xl text-xs font-black hover:bg-[#e88b5f] transition-all"
-                >
-                  <Plus size={14} className="inline mr-1" />
+              <h3 className="text-xs font-black text-[#8A7560] uppercase tracking-wider mb-4 flex items-center gap-2">
+                <Scale size={14} /> Weight History
+              </h3>
+              <div className="text-center py-8">
+                <Scale size={48} className="mx-auto text-stone-300 mb-3" />
+                <p className="text-sm font-bold text-stone-400">No weight records yet</p>
+                <button className="mt-4 px-6 py-2 bg-[#E8621A] text-white rounded-xl text-xs font-black">
                   Add Entry
                 </button>
               </div>
-              {weightHistory.length === 0 ? (
-                <div className="text-center py-8">
-                  <Scale size={48} className="mx-auto text-stone-300 mb-3" />
-                  <p className="text-sm font-bold text-stone-400">No weight records yet</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {weightHistory.map(entry => (
-                    <div key={entry.id} className="p-4 bg-blue-50/30 rounded-2xl border border-blue-100 flex justify-between items-center">
-                      <div>
-                        <div className="font-black text-[#423D38] text-lg">{entry.weight} kg</div>
-                        <div className="text-xs text-stone-500">{entry.date}</div>
-                      </div>
-                      <Scale size={20} className="text-blue-500" />
-                    </div>
-                  ))}
-                </div>
-              )}
             </section>
           </motion.div>
         )}
@@ -1048,8 +723,8 @@ const PawPad = () => {
               </div>
             </div>
 
-            <div className="bg-gradient-to-br from-[#f9a57a]/10 to-[#FF7A35]/5 p-8 rounded-[2.5rem] border-2 border-[#f9a57a]/20 text-center">
-              <Star size={48} className="mx-auto text-[#f9a57a] mb-3" fill="#f9a57a" />
+            <div className="bg-gradient-to-br from-[#E8621A]/10 to-[#FF7A35]/5 p-8 rounded-[2.5rem] border-2 border-[#E8621A]/20 text-center">
+              <Star size={48} className="mx-auto text-[#E8621A] mb-3" fill="#E8621A" />
               <h3 className="text-xl font-black text-[#5C544E] mb-2">Awesome Pet Parent!</h3>
               <p className="text-sm text-[#8A7560] font-medium">
                 You're doing an amazing job caring for your furry friend!
@@ -1067,15 +742,9 @@ const PawPad = () => {
                 <div className="w-24 h-24 rounded-full overflow-hidden bg-[#EDE0CE] mb-4 border-4 border-white shadow-lg">
                   <img src={petProfile.photo} alt="Pet" className="w-full h-full object-cover" />
                 </div>
-                <label className="text-xs font-bold text-[#f9a57a] flex items-center gap-1 cursor-pointer hover:text-[#e88b5f] transition-colors">
+                <button className="text-xs font-bold text-[#E8621A] flex items-center gap-1">
                   <Camera size={14} /> Change Photo
-                  <input 
-                    type="file" 
-                    accept="image/*" 
-                    onChange={handleProfilePhotoChange}
-                    className="hidden" 
-                  />
-                </label>
+                </button>
               </div>
 
               <div className="space-y-4">
@@ -1088,7 +757,7 @@ const PawPad = () => {
                     value={petProfile.name}
                     onChange={(e) => setPetProfile({ ...petProfile, name: e.target.value })}
                     placeholder="e.g., Max, Bella"
-                    className="w-full p-4 bg-stone-50 rounded-2xl border-2 border-transparent focus:border-[#f9a57a] outline-none font-bold"
+                    className="w-full p-4 bg-stone-50 rounded-2xl border-2 border-transparent focus:border-[#E8621A] outline-none font-bold"
                   />
                 </div>
 
@@ -1101,7 +770,7 @@ const PawPad = () => {
                     value={petProfile.breed}
                     onChange={(e) => setPetProfile({ ...petProfile, breed: e.target.value })}
                     placeholder="e.g., Golden Retriever"
-                    className="w-full p-4 bg-stone-50 rounded-2xl border-2 border-transparent focus:border-[#f9a57a] outline-none font-bold"
+                    className="w-full p-4 bg-stone-50 rounded-2xl border-2 border-transparent focus:border-[#E8621A] outline-none font-bold"
                   />
                 </div>
 
@@ -1115,7 +784,7 @@ const PawPad = () => {
                       value={petProfile.age}
                       onChange={(e) => setPetProfile({ ...petProfile, age: e.target.value })}
                       placeholder="e.g., 3 years"
-                      className="w-full p-4 bg-stone-50 rounded-2xl border-2 border-transparent focus:border-[#f9a57a] outline-none font-bold"
+                      className="w-full p-4 bg-stone-50 rounded-2xl border-2 border-transparent focus:border-[#E8621A] outline-none font-bold"
                     />
                   </div>
                   <div>
@@ -1127,7 +796,7 @@ const PawPad = () => {
                       value={petProfile.weight}
                       onChange={(e) => setPetProfile({ ...petProfile, weight: e.target.value })}
                       placeholder="e.g., 25 kg"
-                      className="w-full p-4 bg-stone-50 rounded-2xl border-2 border-transparent focus:border-[#f9a57a] outline-none font-bold"
+                      className="w-full p-4 bg-stone-50 rounded-2xl border-2 border-transparent focus:border-[#E8621A] outline-none font-bold"
                     />
                   </div>
                 </div>
@@ -1140,13 +809,13 @@ const PawPad = () => {
                     type="date"
                     value={petProfile.birthday}
                     onChange={(e) => setPetProfile({ ...petProfile, birthday: e.target.value })}
-                    className="w-full p-4 bg-stone-50 rounded-2xl border-2 border-transparent focus:border-[#f9a57a] outline-none font-bold"
+                    className="w-full p-4 bg-stone-50 rounded-2xl border-2 border-transparent focus:border-[#E8621A] outline-none font-bold"
                   />
                 </div>
 
                 <button
                   onClick={savePetProfile}
-                  className="w-full bg-[#f9a57a] hover:bg-[#e88b5f] text-white py-4 rounded-2xl font-black text-xs uppercase tracking-wider shadow-lg shadow-[#f9a57a]/30 transition-all active:scale-95"
+                  className="w-full bg-[#E8621A] hover:bg-[#D55614] text-white py-4 rounded-2xl font-black text-xs uppercase tracking-wider shadow-lg shadow-[#E8621A]/30 transition-all active:scale-95"
                 >
                   Save Profile
                 </button>
@@ -1157,115 +826,20 @@ const PawPad = () => {
               <h3 className="text-xs font-black text-[#8A7560] uppercase tracking-wider mb-6 flex items-center gap-2">
                 <Phone size={14} /> Emergency Contacts
               </h3>
-              <div className="space-y-4">
-                <div className="p-5 bg-red-50/50 rounded-2xl border border-red-100">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <Stethoscope size={16} className="text-red-500" />
-                      <span className="font-black text-sm text-[#423D38]">Primary Vet</span>
-                    </div>
-                    <button
-                      onClick={() => setEditingContact(editingContact === 'vet' ? null : 'vet')}
-                      className="p-2 hover:bg-red-100 rounded-xl transition-colors"
-                    >
-                      {editingContact === 'vet' ? <Check size={16} className="text-green-600" /> : <Edit size={16} className="text-red-500" />}
-                    </button>
+              <div className="space-y-3">
+                <div className="p-4 bg-red-50/50 rounded-2xl border border-red-100">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Stethoscope size={16} className="text-red-500" />
+                    <span className="font-black text-sm text-[#423D38]">Primary Vet</span>
                   </div>
-                  {editingContact === 'vet' ? (
-                    <div className="space-y-2">
-                      <input
-                        type="text"
-                        placeholder="Clinic Name"
-                        value={emergencyContacts.primaryVet.name}
-                        onChange={(e) => setEmergencyContacts({
-                          ...emergencyContacts,
-                          primaryVet: { ...emergencyContacts.primaryVet, name: e.target.value }
-                        })}
-                        className="w-full p-3 bg-white rounded-xl border border-red-200 text-sm font-bold outline-none focus:border-red-400"
-                      />
-                      <input
-                        type="tel"
-                        placeholder="Phone Number"
-                        value={emergencyContacts.primaryVet.phone}
-                        onChange={(e) => setEmergencyContacts({
-                          ...emergencyContacts,
-                          primaryVet: { ...emergencyContacts.primaryVet, phone: e.target.value }
-                        })}
-                        className="w-full p-3 bg-white rounded-xl border border-red-200 text-sm font-bold outline-none focus:border-red-400"
-                      />
-                      <input
-                        type="text"
-                        placeholder="Address"
-                        value={emergencyContacts.primaryVet.address}
-                        onChange={(e) => setEmergencyContacts({
-                          ...emergencyContacts,
-                          primaryVet: { ...emergencyContacts.primaryVet, address: e.target.value }
-                        })}
-                        className="w-full p-3 bg-white rounded-xl border border-red-200 text-sm font-bold outline-none focus:border-red-400"
-                      />
-                    </div>
-                  ) : (
-                    <div className="text-sm text-stone-600">
-                      {emergencyContacts.primaryVet.name || 'Not set'}
-                      {emergencyContacts.primaryVet.phone && <div className="text-xs font-medium mt-1">{emergencyContacts.primaryVet.phone}</div>}
-                      {emergencyContacts.primaryVet.address && <div className="text-xs text-stone-500 mt-1">{emergencyContacts.primaryVet.address}</div>}
-                    </div>
-                  )}
+                  <p className="text-xs text-stone-500 font-medium">Not set</p>
                 </div>
-                
-                <div className="p-5 bg-blue-50/50 rounded-2xl border border-blue-100">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <Phone size={16} className="text-blue-500" />
-                      <span className="font-black text-sm text-[#423D38]">Emergency Clinic</span>
-                    </div>
-                    <button
-                      onClick={() => setEditingContact(editingContact === 'emergency' ? null : 'emergency')}
-                      className="p-2 hover:bg-blue-100 rounded-xl transition-colors"
-                    >
-                      {editingContact === 'emergency' ? <Check size={16} className="text-green-600" /> : <Edit size={16} className="text-blue-500" />}
-                    </button>
+                <div className="p-4 bg-blue-50/50 rounded-2xl border border-blue-100">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Phone size={16} className="text-blue-500" />
+                    <span className="font-black text-sm text-[#423D38]">Emergency Clinic</span>
                   </div>
-                  {editingContact === 'emergency' ? (
-                    <div className="space-y-2">
-                      <input
-                        type="text"
-                        placeholder="Clinic Name"
-                        value={emergencyContacts.emergencyClinic.name}
-                        onChange={(e) => setEmergencyContacts({
-                          ...emergencyContacts,
-                          emergencyClinic: { ...emergencyContacts.emergencyClinic, name: e.target.value }
-                        })}
-                        className="w-full p-3 bg-white rounded-xl border border-blue-200 text-sm font-bold outline-none focus:border-blue-400"
-                      />
-                      <input
-                        type="tel"
-                        placeholder="Phone Number"
-                        value={emergencyContacts.emergencyClinic.phone}
-                        onChange={(e) => setEmergencyContacts({
-                          ...emergencyContacts,
-                          emergencyClinic: { ...emergencyContacts.emergencyClinic, phone: e.target.value }
-                        })}
-                        className="w-full p-3 bg-white rounded-xl border border-blue-200 text-sm font-bold outline-none focus:border-blue-400"
-                      />
-                      <input
-                        type="text"
-                        placeholder="Address"
-                        value={emergencyContacts.emergencyClinic.address}
-                        onChange={(e) => setEmergencyContacts({
-                          ...emergencyContacts,
-                          emergencyClinic: { ...emergencyContacts.emergencyClinic, address: e.target.value }
-                        })}
-                        className="w-full p-3 bg-white rounded-xl border border-blue-200 text-sm font-bold outline-none focus:border-blue-400"
-                      />
-                    </div>
-                  ) : (
-                    <div className="text-sm text-stone-600">
-                      {emergencyContacts.emergencyClinic.name || 'Not set'}
-                      {emergencyContacts.emergencyClinic.phone && <div className="text-xs font-medium mt-1">{emergencyContacts.emergencyClinic.phone}</div>}
-                      {emergencyContacts.emergencyClinic.address && <div className="text-xs text-stone-500 mt-1">{emergencyContacts.emergencyClinic.address}</div>}
-                    </div>
-                  )}
+                  <p className="text-xs text-stone-500 font-medium">Not set</p>
                 </div>
               </div>
             </div>
@@ -1273,7 +847,6 @@ const PawPad = () => {
         )}
       </main>
 
-      {/* Add Activity Modal */}
       <AnimatePresence>
         {showModal && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
@@ -1302,7 +875,7 @@ const PawPad = () => {
               </p>
               <input 
                 autoFocus
-                className="w-full p-5 bg-stone-50 rounded-2xl border-2 border-transparent focus:border-[#f9a57a] outline-none mb-8 font-bold text-[#423D38]" 
+                className="w-full p-5 bg-stone-50 rounded-2xl border-2 border-transparent focus:border-[#E8621A] outline-none mb-8 font-bold text-[#423D38]" 
                 placeholder="e.g., Played fetch in the park"
                 value={newAct}
                 onChange={(e) => setNewAct(e.target.value)}
@@ -1310,144 +883,12 @@ const PawPad = () => {
               />
               <button 
                 onClick={handleAddActivity} 
-                className="w-full bg-[#f9a57a] hover:bg-[#e88b5f] text-white py-5 rounded-2xl font-black text-xs uppercase tracking-wider shadow-lg shadow-[#f9a57a]/30 active:scale-95 transition-all"
+                className="w-full bg-[#E8621A] hover:bg-[#D55614] text-white py-5 rounded-2xl font-black text-xs uppercase tracking-wider shadow-lg shadow-[#E8621A]/30 active:scale-95 transition-all"
               >
                 Save Activity
               </button>
             </motion.div>
           </div>
-        )}
-      </AnimatePresence>
-
-      {/* Weight Entry Modal */}
-      <AnimatePresence>
-        {showWeightModal && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
-            <motion.div 
-              initial={{ opacity: 0 }} 
-              animate={{ opacity: 1 }} 
-              exit={{ opacity: 0 }} 
-              onClick={() => setShowWeightModal(false)} 
-              className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm" 
-            />
-            <motion.div 
-              initial={{ scale: 0.9, opacity: 0 }} 
-              animate={{ scale: 1, opacity: 1 }} 
-              exit={{ scale: 0.9, opacity: 0 }} 
-              className="relative bg-white w-full max-w-sm rounded-[3rem] p-10 shadow-2xl border-2 border-[#EDE0CE]"
-            >
-              <button
-                onClick={() => setShowWeightModal(false)}
-                className="absolute top-6 right-6 p-2 hover:bg-stone-100 rounded-full transition-colors"
-              >
-                <X size={20} className="text-stone-400" />
-              </button>
-              <h3 className="text-2xl font-black mb-2 text-[#423D38] tracking-tight">Add Weight Entry</h3>
-              <p className="text-[#8A7560] text-xs font-bold mb-8 uppercase tracking-wider">
-                Track your pet's weight
-              </p>
-              <div className="space-y-4 mb-8">
-                <input 
-                  type="number"
-                  step="0.1"
-                  placeholder="Weight (kg)"
-                  value={newWeight.weight}
-                  onChange={(e) => setNewWeight({ ...newWeight, weight: e.target.value })}
-                  className="w-full p-5 bg-stone-50 rounded-2xl border-2 border-transparent focus:border-[#f9a57a] outline-none font-bold text-[#423D38]" 
-                />
-                <input 
-                  type="date"
-                  value={newWeight.date}
-                  onChange={(e) => setNewWeight({ ...newWeight, date: e.target.value })}
-                  className="w-full p-5 bg-stone-50 rounded-2xl border-2 border-transparent focus:border-[#f9a57a] outline-none font-bold text-[#423D38]" 
-                />
-              </div>
-              <button 
-                onClick={addWeightEntry} 
-                className="w-full bg-[#f9a57a] hover:bg-[#e88b5f] text-white py-5 rounded-2xl font-black text-xs uppercase tracking-wider shadow-lg shadow-[#f9a57a]/30 active:scale-95 transition-all"
-              >
-                Save Entry
-              </button>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* Medication Modal */}
-      <AnimatePresence>
-        {showMedicationModal && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
-            <motion.div 
-              initial={{ opacity: 0 }} 
-              animate={{ opacity: 1 }} 
-              exit={{ opacity: 0 }} 
-              onClick={() => setShowMedicationModal(false)} 
-              className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm" 
-            />
-            <motion.div 
-              initial={{ scale: 0.9, opacity: 0 }} 
-              animate={{ scale: 1, opacity: 1 }} 
-              exit={{ scale: 0.9, opacity: 0 }} 
-              className="relative bg-white w-full max-w-sm rounded-[3rem] p-10 shadow-2xl border-2 border-[#EDE0CE]"
-            >
-              <button
-                onClick={() => setShowMedicationModal(false)}
-                className="absolute top-6 right-6 p-2 hover:bg-stone-100 rounded-full transition-colors"
-              >
-                <X size={20} className="text-stone-400" />
-              </button>
-              <h3 className="text-2xl font-black mb-2 text-[#423D38] tracking-tight">Add Medication</h3>
-              <p className="text-[#8A7560] text-xs font-bold mb-8 uppercase tracking-wider">
-                Track medications
-              </p>
-              <div className="space-y-4 mb-8">
-                <input 
-                  type="text"
-                  placeholder="Medication Name"
-                  value={newMedication.name}
-                  onChange={(e) => setNewMedication({ ...newMedication, name: e.target.value })}
-                  className="w-full p-5 bg-stone-50 rounded-2xl border-2 border-transparent focus:border-[#f9a57a] outline-none font-bold text-[#423D38]" 
-                />
-                <select
-                  value={newMedication.frequency}
-                  onChange={(e) => setNewMedication({ ...newMedication, frequency: e.target.value })}
-                  className="w-full p-5 bg-stone-50 rounded-2xl border-2 border-transparent focus:border-[#f9a57a] outline-none font-bold text-[#423D38]"
-                >
-                  <option value="Daily">Daily</option>
-                  <option value="Weekly">Weekly</option>
-                  <option value="Monthly">Monthly</option>
-                  <option value="As Needed">As Needed</option>
-                </select>
-                <input 
-                  type="date"
-                  value={newMedication.lastGiven}
-                  onChange={(e) => setNewMedication({ ...newMedication, lastGiven: e.target.value })}
-                  className="w-full p-5 bg-stone-50 rounded-2xl border-2 border-transparent focus:border-[#f9a57a] outline-none font-bold text-[#423D38]" 
-                />
-              </div>
-              <button 
-                onClick={addMedication} 
-                className="w-full bg-[#f9a57a] hover:bg-[#e88b5f] text-white py-5 rounded-2xl font-black text-xs uppercase tracking-wider shadow-lg shadow-[#f9a57a]/30 active:scale-95 transition-all"
-              >
-                Save Medication
-              </button>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* Success Toast */}
-      <AnimatePresence>
-        {showSuccessToast && (
-          <motion.div
-            initial={{ opacity: 0, y: 50 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 50 }}
-            className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[200] bg-gradient-to-r from-green-500 to-emerald-500 text-white px-8 py-4 rounded-2xl shadow-2xl flex items-center gap-3"
-          >
-            <CheckCircle2 size={24} />
-            <span className="font-bold">{toastMessage}</span>
-          </motion.div>
         )}
       </AnimatePresence>
     </div>
