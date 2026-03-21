@@ -139,8 +139,10 @@ const PawPad = () => {
   const [currentReminderIndex, setCurrentReminderIndex] = useState(0);
   const [showSuccessToast, setShowSuccessToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
+  const [photosLoaded, setPhotosLoaded] = useState(false);
 
   useEffect(() => {
+    console.log('🔵 Loading data from localStorage...');
     const savedUser = localStorage.getItem('pawpad_user');
     const savedPet = localStorage.getItem('pawpad_pet_profile');
     const savedActivities = localStorage.getItem('pawpad_activities');
@@ -156,11 +158,19 @@ const PawPad = () => {
     }
     if (savedPet) setPetProfile(JSON.parse(savedPet));
     if (savedActivities) setActivities(JSON.parse(savedActivities));
-    if (savedPhotos) setPhotos(JSON.parse(savedPhotos));
+    if (savedPhotos) {
+      const parsedPhotos = JSON.parse(savedPhotos);
+      setPhotos(parsedPhotos);
+      console.log('🟢 Loaded', parsedPhotos.length, 'photos from localStorage');
+    }
     if (savedWeight) setWeightHistory(JSON.parse(savedWeight));
     if (savedVaccinations) setVaccinations(JSON.parse(savedVaccinations));
     if (savedMedications) setMedications(JSON.parse(savedMedications));
     if (savedContacts) setEmergencyContacts(JSON.parse(savedContacts));
+    
+    // Mark photos as loaded so we don't overwrite them
+    setPhotosLoaded(true);
+    console.log('🟢 Initial data load complete');
   }, []);
 
   useEffect(() => {
@@ -170,9 +180,14 @@ const PawPad = () => {
   }, [activities]);
 
   useEffect(() => {
-    // Always save photos to localStorage whenever they change
-    localStorage.setItem('pawpad_photos', JSON.stringify(photos));
-  }, [photos]);
+    // Only save photos after initial load is complete
+    // This prevents overwriting saved photos with empty array on mount
+    if (photosLoaded) {
+      const jsonData = JSON.stringify(photos);
+      localStorage.setItem('pawpad_photos', jsonData);
+      console.log('🔵 Auto-saved', photos.length, 'photos to localStorage');
+    }
+  }, [photos, photosLoaded]);
 
   useEffect(() => {
     if (weightHistory.length > 0) {
@@ -242,77 +257,149 @@ const PawPad = () => {
     setShowProfile(false);
   };
 
-  // Photo Gallery Functions - ULTRA SIMPLE VERSION
+  // Photo Gallery Functions - WITH WORKING COMPRESSION
   const handlePhotoUpload = (e) => {
     const files = Array.from(e.target.files);
     if (!files || files.length === 0) return;
     
     console.log('🔵 Upload started -', files.length, 'files');
-    setToastMessage('Uploading...');
+    setToastMessage('Processing...');
     setShowSuccessToast(true);
     
     const newPhotos = [];
     let completed = 0;
     
-    files.forEach((file) => {
+    files.forEach((file, index) => {
+      // Check file size - reject if > 10MB to prevent crashes
+      if (file.size > 10 * 1024 * 1024) {
+        console.log('🔴 File too large:', file.name, (file.size / 1024 / 1024).toFixed(1), 'MB');
+        completed++;
+        if (completed === files.length && newPhotos.length > 0) {
+          saveNewPhotos(newPhotos);
+        } else if (completed === files.length) {
+          setToastMessage('Photos too large! Use smaller images.');
+          setShowSuccessToast(true);
+        }
+        return;
+      }
+      
       const reader = new FileReader();
       
       reader.onload = (e) => {
-        console.log('🔵 File read complete');
+        const img = new window.Image();
         
-        const photoData = {
-          id: Date.now() + Math.random(),
-          url: e.target.result, // Direct base64, no compression
-          date: new Date().toISOString(),
-          caption: ''
+        img.onload = () => {
+          console.log('🔵 Compressing image', index + 1);
+          
+          // Create canvas
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          
+          // Calculate size (max 800px to prevent crashes)
+          let width = img.width;
+          let height = img.height;
+          const maxSize = 800;
+          
+          if (width > height && width > maxSize) {
+            height = Math.round((height * maxSize) / width);
+            width = maxSize;
+          } else if (height > maxSize) {
+            width = Math.round((width * maxSize) / height);
+            height = maxSize;
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          
+          // Draw and compress
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          try {
+            // Compress to 60% quality (smaller = more reliable)
+            const compressed = canvas.toDataURL('image/jpeg', 0.6);
+            const sizeKB = (compressed.length / 1024).toFixed(0);
+            console.log('🟢 Compressed to', sizeKB, 'KB');
+            
+            newPhotos.push({
+              id: Date.now() + Math.random() + index,
+              url: compressed,
+              date: new Date().toISOString(),
+              caption: ''
+            });
+          } catch (err) {
+            console.log('🔴 Compression failed:', err.message);
+          }
+          
+          completed++;
+          if (completed === files.length) {
+            saveNewPhotos(newPhotos);
+          }
         };
         
-        newPhotos.push(photoData);
-        completed++;
+        img.onerror = () => {
+          console.log('🔴 Image load failed');
+          completed++;
+          if (completed === files.length && newPhotos.length > 0) {
+            saveNewPhotos(newPhotos);
+          }
+        };
         
-        console.log('🔵 Processed', completed, 'of', files.length);
-        
-        if (completed === files.length) {
-          console.log('🔵 All files processed, updating state...');
-          
-          setPhotos(prev => {
-            const updated = [...newPhotos, ...prev];
-            console.log('🔵 New photo count:', updated.length);
-            
-            // Try to save to localStorage
-            try {
-              localStorage.setItem('pawpad_photos', JSON.stringify(updated));
-              console.log('🟢 Saved to localStorage');
-            } catch (err) {
-              console.log('🔴 localStorage failed:', err.message);
-            }
-            
-            return updated;
-          });
-          
-          setToastMessage(`${newPhotos.length} photo uploaded!`);
-          setShowSuccessToast(true);
-          console.log('🟢 Upload complete!');
-        }
+        img.src = e.target.result;
       };
       
-      reader.onerror = (err) => {
-        console.log('🔴 File read error:', err);
+      reader.onerror = () => {
+        console.log('🔴 File read failed');
         completed++;
         if (completed === files.length && newPhotos.length > 0) {
-          setPhotos(prev => [...newPhotos, ...prev]);
+          saveNewPhotos(newPhotos);
         }
       };
       
       reader.readAsDataURL(file);
     });
   };
+  
+  const saveNewPhotos = (newPhotos) => {
+    if (newPhotos.length === 0) {
+      setToastMessage('No photos processed');
+      setShowSuccessToast(true);
+      return;
+    }
+    
+    console.log('🔵 Saving', newPhotos.length, 'photos');
+    
+    setPhotos(prevPhotos => {
+      const updated = [...newPhotos, ...prevPhotos];
+      console.log('🔵 Total photos now:', updated.length);
+      
+      // Save to localStorage
+      try {
+        const jsonData = JSON.stringify(updated);
+        localStorage.setItem('pawpad_photos', jsonData);
+        console.log('🟢 SAVED to localStorage -', updated.length, 'photos,', (jsonData.length / 1024).toFixed(0), 'KB');
+      } catch (err) {
+        console.log('🔴 localStorage save failed:', err.message);
+        if (err.name === 'QuotaExceededError') {
+          setToastMessage('Storage full! Delete old photos.');
+          setShowSuccessToast(true);
+        }
+      }
+      
+      return updated;
+    });
+    
+    setToastMessage(`${newPhotos.length} photo${newPhotos.length > 1 ? 's' : ''} uploaded!`);
+    setShowSuccessToast(true);
+  };
 
   const deletePhoto = (id) => {
+    console.log('🔵 Deleting photo:', id);
     setPhotos(prev => {
       const updated = prev.filter(p => p.id !== id);
+      console.log('🔵 Photos after delete:', updated.length);
       try {
         localStorage.setItem('pawpad_photos', JSON.stringify(updated));
+        console.log('🟢 Delete saved to localStorage');
       } catch (err) {
         console.log('🔴 Delete save failed:', err);
       }
@@ -321,37 +408,83 @@ const PawPad = () => {
     setSelectedPhoto(null);
   };
 
-  // Pet Profile Photo Change - ULTRA SIMPLE
+  // Pet Profile Photo Change - WITH COMPRESSION
   const handleProfilePhotoChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
+    
+    // Check file size
+    if (file.size > 10 * 1024 * 1024) {
+      setToastMessage('Photo too large! Use smaller image.');
+      setShowSuccessToast(true);
+      return;
+    }
     
     console.log('🔵 Profile photo upload started');
     
     const reader = new FileReader();
     reader.onload = (e) => {
-      console.log('🔵 Profile photo read complete');
+      const img = new window.Image();
       
-      setPetProfile(prev => {
-        const updated = { ...prev, photo: e.target.result };
+      img.onload = () => {
+        console.log('🔵 Compressing profile photo');
         
-        try {
-          localStorage.setItem('pawpad_pet_profile', JSON.stringify(updated));
-          console.log('🟢 Profile saved');
-        } catch (err) {
-          console.log('🔴 Profile save failed:', err);
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Max 600px for profile
+        let width = img.width;
+        let height = img.height;
+        const maxSize = 600;
+        
+        if (width > height && width > maxSize) {
+          height = Math.round((height * maxSize) / width);
+          width = maxSize;
+        } else if (height > maxSize) {
+          width = Math.round((width * maxSize) / height);
+          height = maxSize;
         }
         
-        return updated;
-      });
+        canvas.width = width;
+        canvas.height = height;
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        try {
+          const compressed = canvas.toDataURL('image/jpeg', 0.7);
+          console.log('🟢 Profile photo compressed:', (compressed.length / 1024).toFixed(0), 'KB');
+          
+          setPetProfile(prev => {
+            const updated = { ...prev, photo: compressed };
+            try {
+              localStorage.setItem('pawpad_pet_profile', JSON.stringify(updated));
+              console.log('🟢 Profile saved');
+            } catch (err) {
+              console.log('🔴 Profile save failed:', err);
+            }
+            return updated;
+          });
+          
+          setToastMessage('Profile photo updated!');
+          setShowSuccessToast(true);
+        } catch (err) {
+          console.log('🔴 Compression failed:', err);
+          setToastMessage('Failed to process photo');
+          setShowSuccessToast(true);
+        }
+      };
       
-      setToastMessage('Profile photo updated!');
-      setShowSuccessToast(true);
+      img.onerror = () => {
+        console.log('🔴 Image load failed');
+        setToastMessage('Invalid image file');
+        setShowSuccessToast(true);
+      };
+      
+      img.src = e.target.result;
     };
     
-    reader.onerror = (err) => {
-      console.log('🔴 Profile photo read failed:', err);
-      setToastMessage('Failed to upload photo');
+    reader.onerror = () => {
+      console.log('🔴 File read failed');
+      setToastMessage('Failed to read file');
       setShowSuccessToast(true);
     };
     
