@@ -472,7 +472,7 @@ const PawPad = () => {
     <div className="min-h-screen bg-[#FDFBF7] text-[#423D38] font-sans pb-24">
       <nav className="p-5 flex justify-between items-center bg-white/70 backdrop-blur-lg sticky top-0 z-50 border-b border-stone-100 shadow-sm">
         <h1 className="text-xl font-black tracking-tighter flex items-center gap-2 text-[#f9a57a]">
-          <Heart size={20} fill="#f18149" /> PAWPAD
+          <Heart size={20} fill="#f9a57a" /> PAWPAD
         </h1>
         <div className="flex gap-3 relative">
           <button 
@@ -627,10 +627,10 @@ const PawPad = () => {
               <div className="flex gap-3 mb-6">
                 <button 
                   onClick={() => {setPetType('dogs'); setSelectedBreed('');}} 
-                  className={`flex-1 py-4 rounded-2xl text-xs font-black tracking-widest transition-all cursor-pointer ${
+                  className={`flex-1 py-4 rounded-2xl text-xs font-black tracking-widest transition-all cursor-pointer text-white ${
                     petType === 'dogs' 
-                      ? 'bg-[#00E5DC] text-white shadow-md' 
-                      : 'bg-white text-stone-300 border border-stone-100'
+                      ? 'bg-[#00E5DC] shadow-lg scale-105' 
+                      : 'bg-[#00E5DC]/60 shadow-md hover:bg-[#00E5DC]/75'
                   }`}
                 >
                   <Dog size={20} className="mx-auto mb-1" />
@@ -638,10 +638,10 @@ const PawPad = () => {
                 </button>
                 <button 
                   onClick={() => {setPetType('cats'); setSelectedBreed('');}} 
-                  className={`flex-1 py-4 rounded-2xl text-xs font-black tracking-widest transition-all cursor-pointer ${
+                  className={`flex-1 py-4 rounded-2xl text-xs font-black tracking-widest transition-all cursor-pointer text-white ${
                     petType === 'cats' 
-                      ? 'bg-[#FF7A35] text-white shadow-md' 
-                      : 'bg-white text-stone-300 border border-stone-100'
+                      ? 'bg-[#FF7A35] shadow-lg scale-105' 
+                      : 'bg-[#FF7A35]/60 shadow-md hover:bg-[#FF7A35]/75'
                   }`}
                 >
                   <Cat size={20} className="mx-auto mb-1" />
