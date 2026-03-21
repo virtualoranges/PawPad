@@ -170,6 +170,11 @@ const PawPad = () => {
   }, [activities]);
 
   useEffect(() => {
+    // Always save photos to localStorage whenever they change
+    localStorage.setItem('pawpad_photos', JSON.stringify(photos));
+  }, [photos]);
+
+  useEffect(() => {
     if (weightHistory.length > 0) {
       localStorage.setItem('pawpad_weight', JSON.stringify(weightHistory));
     }
@@ -240,11 +245,12 @@ const PawPad = () => {
   // Photo Gallery Functions
   const handlePhotoUpload = (e) => {
     const files = Array.from(e.target.files);
+    if (!files || files.length === 0) return;
     
     // Convert files to base64 for localStorage persistence
     Promise.all(
       files.map(file => {
-        return new Promise((resolve) => {
+        return new Promise((resolve, reject) => {
           const reader = new FileReader();
           reader.onloadend = () => {
             resolve({
@@ -254,33 +260,70 @@ const PawPad = () => {
               caption: ''
             });
           };
+          reader.onerror = () => {
+            reject(new Error('Failed to read file'));
+          };
           reader.readAsDataURL(file);
         });
       })
     ).then(newPhotos => {
-      const updatedPhotos = [...newPhotos, ...photos];
-      setPhotos(updatedPhotos);
-      localStorage.setItem('pawpad_photos', JSON.stringify(updatedPhotos));
+      // Use functional form to avoid stale state
+      setPhotos(prevPhotos => {
+        const updatedPhotos = [...newPhotos, ...prevPhotos];
+        // Also save immediately to localStorage
+        try {
+          localStorage.setItem('pawpad_photos', JSON.stringify(updatedPhotos));
+          console.log('Photos saved to localStorage:', updatedPhotos.length);
+        } catch (error) {
+          console.error('Failed to save photos:', error);
+        }
+        return updatedPhotos;
+      });
+      
+      // Show success toast
+      setToastMessage(`${newPhotos.length} photo${newPhotos.length > 1 ? 's' : ''} uploaded! 📸`);
+      setShowSuccessToast(true);
+    }).catch(error => {
+      console.error('Error uploading photos:', error);
+      setToastMessage('Failed to upload photos');
+      setShowSuccessToast(true);
     });
   };
 
   const deletePhoto = (id) => {
-    const updatedPhotos = photos.filter(p => p.id !== id);
-    setPhotos(updatedPhotos);
-    localStorage.setItem('pawpad_photos', JSON.stringify(updatedPhotos));
+    setPhotos(prevPhotos => {
+      const updatedPhotos = prevPhotos.filter(p => p.id !== id);
+      localStorage.setItem('pawpad_photos', JSON.stringify(updatedPhotos));
+      return updatedPhotos;
+    });
     setSelectedPhoto(null);
   };
 
   // Pet Profile Photo Change
   const handleProfilePhotoChange = (e) => {
     const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPetProfile({ ...petProfile, photo: reader.result });
-      };
-      reader.readAsDataURL(file);
-    }
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setPetProfile(prevProfile => {
+        const updatedProfile = { ...prevProfile, photo: reader.result };
+        // Save immediately
+        try {
+          localStorage.setItem('pawpad_pet_profile', JSON.stringify(updatedProfile));
+          console.log('Profile photo saved to localStorage');
+        } catch (error) {
+          console.error('Failed to save profile photo:', error);
+        }
+        return updatedProfile;
+      });
+    };
+    reader.onerror = () => {
+      console.error('Failed to read profile photo');
+      setToastMessage('Failed to upload photo');
+      setShowSuccessToast(true);
+    };
+    reader.readAsDataURL(file);
   };
 
   // Weight History Functions
@@ -806,6 +849,7 @@ const PawPad = () => {
                 <input 
                   type="file" 
                   accept="image/*" 
+                  capture="environment"
                   multiple 
                   onChange={handlePhotoUpload} 
                   className="hidden" 
@@ -1071,7 +1115,8 @@ const PawPad = () => {
                   <Camera size={14} /> Change Photo
                   <input 
                     type="file" 
-                    accept="image/*" 
+                    accept="image/*"
+                    capture="environment"
                     onChange={handleProfilePhotoChange}
                     className="hidden" 
                   />
