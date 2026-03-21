@@ -472,7 +472,7 @@ const PawPad = () => {
     <div className="min-h-screen bg-[#FDFBF7] text-[#423D38] font-sans pb-24">
       <nav className="p-5 flex justify-between items-center bg-white/70 backdrop-blur-lg sticky top-0 z-50 border-b border-stone-100 shadow-sm">
         <h1 className="text-xl font-black tracking-tighter flex items-center gap-2 text-[#f9a57a]">
-          <Heart size={20} fill="#f18149" /> PAWPAD
+          <Heart size={20} fill="#f9a57a" /> PAWPAD
         </h1>
         <div className="flex gap-3 relative">
           <button 
