@@ -17,13 +17,14 @@ const BREEDS = {
     { name: 'Poodle', care: 'Genius-level smart. Professional grooming every 6 weeks.' },
     { name: 'German Shepherd', care: 'Needs a "job" to do. Excellent for active owners.' },
     { name: 'Beagle', care: 'Follows their nose everywhere! Needs a fenced yard.' },
-    { name: 'Dachshund', care: 'Small body, big heart. Watch their backs - no jumping!' },
+    { name: 'Dachshund', care: 'Small body, big heart. Watch their backs—no jumping!' },
     { name: 'Siberian Husky', care: 'Talkative escape artists. Needs heavy exercise.' },
-    { name: 'Labrador', care: "America's sweetheart. Watch their weight - they love food!" },
+    { name: 'Labrador', care: 'America's sweetheart. Watch their weight—they love food!' },
     { name: 'Boxer', care: 'Stay puppies forever. Great with kids but very bouncy.' },
     { name: 'Chihuahua', care: 'Tiny but mighty. Bonds intensely with one person.' },
     { name: 'Great Dane', care: 'Gentle giants. Needs more couch space than exercise.' },
     { name: 'Shiba Inu', care: 'Independent and "cat-like." Gaining trust is a reward.' },
+    // NEW BREEDS
     { name: 'Australian Shepherd', care: 'High-energy herders. Need mental stimulation daily.' },
     { name: 'Corgi', care: 'Short legs, big personality. Surprisingly athletic!' },
     { name: 'Border Collie', care: 'Smartest breed. Needs challenging tasks and space.' },
@@ -48,6 +49,7 @@ const BREEDS = {
     { name: 'Russian Blue', care: 'Loyal and stunning silvery coat. Quiet voice.' },
     { name: 'Burmese', care: 'Affectionate and people-oriented.' },
     { name: 'Devon Rex', care: 'Mischievous and love perching on shoulders.' },
+    // NEW BREEDS
     { name: 'Norwegian Forest Cat', care: 'Majestic and independent. Weatherproof double coat.' },
     { name: 'Birman', care: 'Blue-eyed beauties. Gentle and social companions.' },
     { name: 'Oriental Shorthair', care: 'Elegant athletes. Very vocal and demanding.' },
@@ -62,24 +64,26 @@ const BREEDS = {
 };
 
 const REMINDERS = [
-  { icon: Utensils, text: "Time for breakfast!", color: "text-orange-500" },
-  { icon: Droplet, text: "Refresh water bowl", color: "text-blue-500" },
-  { icon: Dumbbell, text: "Walk time! Get moving", color: "text-green-500" },
-  { icon: Pill, text: "Medication reminder", color: "text-purple-500" },
-  { icon: Scissors, text: "Grooming appointment coming up", color: "text-pink-500" },
-  { icon: Stethoscope, text: "Vet checkup this week", color: "text-red-500" },
-  { icon: Apple, text: "Treat time!", color: "text-yellow-500" },
-  { icon: Brain, text: "Training session scheduled", color: "text-indigo-500" },
-  { icon: Moon, text: "Bedtime routine", color: "text-slate-500" },
-  { icon: Camera, text: "Capture today's memories", color: "text-teal-500" },
+  { icon: Utensils, text: "Time for breakfast! 🍽️", color: "text-orange-500" },
+  { icon: Droplet, text: "Refresh water bowl 💧", color: "text-blue-500" },
+  { icon: Dumbbell, text: "Walk time! Get moving 🐾", color: "text-green-500" },
+  { icon: Pill, text: "Medication reminder 💊", color: "text-purple-500" },
+  { icon: Scissors, text: "Grooming appointment coming up ✂️", color: "text-pink-500" },
+  { icon: Stethoscope, text: "Vet checkup this week 🏥", color: "text-red-500" },
+  { icon: Apple, text: "Treat time! 🦴", color: "text-yellow-500" },
+  { icon: Brain, text: "Training session scheduled 🎓", color: "text-indigo-500" },
+  { icon: Moon, text: "Bedtime routine 🌙", color: "text-slate-500" },
+  { icon: Camera, text: "Capture today's memories 📸", color: "text-teal-500" },
 ];
 
 const PawPad = () => {
+  // Auth state
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const [authMode, setAuthMode] = useState('login');
+  const [authMode, setAuthMode] = useState('login'); // 'login' or 'register'
   const [authForm, setAuthForm] = useState({ email: '', password: '', name: '' });
   
+  // App state
   const [currentTab, setCurrentTab] = useState('home');
   const [petType, setPetType] = useState('dogs');
   const [selectedBreed, setSelectedBreed] = useState('');
@@ -90,6 +94,7 @@ const PawPad = () => {
   const [newAct, setNewAct] = useState("");
   const [currentUser, setCurrentUser] = useState(null);
   
+  // Pet profile state
   const [petProfile, setPetProfile] = useState({
     name: '',
     breed: '',
@@ -99,6 +104,7 @@ const PawPad = () => {
     photo: 'https://api.dicebear.com/7.x/lorelei/svg?seed=Pet'
   });
 
+  // Health tracking
   const [weightHistory, setWeightHistory] = useState([]);
   const [vaccinations, setVaccinations] = useState([
     { id: 1, name: 'Rabies', date: '2024-01-15', nextDue: '2025-01-15', done: true },
@@ -116,8 +122,10 @@ const PawPad = () => {
     { id: 5, text: "Waste Bags", checked: false },
   ]);
 
+  // Notification rotation
   const [currentReminderIndex, setCurrentReminderIndex] = useState(0);
 
+  // Load user data from localStorage
   useEffect(() => {
     const savedUser = localStorage.getItem('pawpad_user');
     const savedPet = localStorage.getItem('pawpad_pet_profile');
@@ -135,12 +143,14 @@ const PawPad = () => {
     }
   }, []);
 
+  // Save activities to localStorage
   useEffect(() => {
     if (activities.length > 0) {
       localStorage.setItem('pawpad_activities', JSON.stringify(activities));
     }
   }, [activities]);
 
+  // Rotate reminders
   useEffect(() => {
     if (showNotifs) {
       const interval = setInterval(() => {
@@ -164,6 +174,7 @@ const PawPad = () => {
       setShowAuthModal(false);
       setAuthForm({ email: '', password: '', name: '' });
     } else {
+      // Simple login - in production, you'd validate credentials
       const user = {
         name: authForm.email.split('@')[0],
         email: authForm.email,
@@ -204,9 +215,10 @@ const PawPad = () => {
 
   const savePetProfile = () => {
     localStorage.setItem('pawpad_pet_profile', JSON.stringify(petProfile));
-    alert('Pet profile saved!');
+    alert('Pet profile saved! 🐾');
   };
 
+  // If not authenticated, show auth screen
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#FDFBF7] via-[#EDE0CE] to-[#E8621A]/10 flex items-center justify-center p-6">
@@ -316,6 +328,7 @@ const PawPad = () => {
 
   return (
     <div className="min-h-screen bg-[#FDFBF7] text-[#423D38] font-sans pb-24">
+      {/* Navbar */}
       <nav className="p-5 flex justify-between items-center bg-white/70 backdrop-blur-lg sticky top-0 z-50 border-b border-stone-100 shadow-sm">
         <h1 className="text-xl font-black tracking-tighter flex items-center gap-2 text-[#E8621A]">
           <Heart size={20} fill="#E8621A" /> PAWPAD
@@ -337,6 +350,7 @@ const PawPad = () => {
             <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=PetLover" alt="Avatar" />
           </button>
 
+          {/* Notification Dropdown */}
           <AnimatePresence>
             {showNotifs && (
               <motion.div 
@@ -384,6 +398,7 @@ const PawPad = () => {
             )}
           </AnimatePresence>
 
+          {/* Profile Dropdown */}
           <AnimatePresence>
             {showProfile && (
               <motion.div 
@@ -415,6 +430,7 @@ const PawPad = () => {
       </nav>
 
       <main className="max-w-xl mx-auto p-6">
+        {/* Tab Navigation */}
         <div className="flex gap-2 mb-8 overflow-x-auto pb-2">
           {[
             { id: 'home', label: 'Home', icon: Home },
@@ -440,12 +456,14 @@ const PawPad = () => {
           })}
         </div>
 
+        {/* HOME TAB */}
         {currentTab === 'home' && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+            {/* Welcome Banner */}
             <section className="bg-gradient-to-br from-[#EDE0CE] to-[#E2D0B8] border border-[#E2D0B8] rounded-[2.5rem] p-10 mb-10 relative overflow-hidden shadow-lg">
               <div className="relative z-10">
                 <h2 className="text-3xl font-black mb-1 text-[#5C544E] tracking-tight">
-                  Hey, {currentUser?.name}!
+                  Hey, {currentUser?.name}! 👋
                 </h2>
                 <p className="text-[#8A7560] text-sm mb-8 font-medium italic">
                   Ready to make today pawsome?
@@ -460,12 +478,14 @@ const PawPad = () => {
               <Dog className="absolute -right-6 -bottom-6 w-48 h-48 opacity-10 text-[#8A7560] rotate-12" />
             </section>
 
+            {/* Quick Stats */}
             <div className="grid grid-cols-3 gap-3 mb-10">
               <StatCard icon={Activity} value={activities.length} label="Activities" color="bg-blue-50" iconColor="text-blue-500" />
               <StatCard icon={CheckCircle2} value={supplies.filter(s => s.checked).length} label="Completed" color="bg-green-50" iconColor="text-green-500" />
               <StatCard icon={Award} value="92%" label="Care Score" color="bg-orange-50" iconColor="text-orange-500" />
             </div>
 
+            {/* Breed Explorer */}
             <section className="mb-12">
               <h3 className="text-xs font-black text-[#8A7560] uppercase tracking-wider mb-4 flex items-center gap-2">
                 <Search size={14} /> Breed Explorer
@@ -532,6 +552,7 @@ const PawPad = () => {
               </AnimatePresence>
             </section>
 
+            {/* Quick Actions */}
             <section className="mb-10">
               <h3 className="text-xs font-black text-[#8A7560] uppercase tracking-wider mb-4">Quick Actions</h3>
               <div className="grid grid-cols-2 gap-4">
@@ -539,7 +560,7 @@ const PawPad = () => {
                   icon={Utensils} 
                   label="Fed Pet" 
                   sub="Tap to log"
-                  onClick={() => quickLog("Fed breakfast")}
+                  onClick={() => quickLog("🍽️ Fed breakfast")}
                   bg="bg-orange-50/50"
                   iconColor="text-orange-500"
                 />
@@ -547,7 +568,7 @@ const PawPad = () => {
                   icon={Dumbbell} 
                   label="Exercise" 
                   sub="Tap to log"
-                  onClick={() => quickLog("30 min walk")}
+                  onClick={() => quickLog("🏃 30 min walk")}
                   bg="bg-green-50/50"
                   iconColor="text-green-500"
                 />
@@ -555,7 +576,7 @@ const PawPad = () => {
                   icon={Droplet} 
                   label="Water Bowl" 
                   sub="Tap to log"
-                  onClick={() => quickLog("Refilled water")}
+                  onClick={() => quickLog("💧 Refilled water")}
                   bg="bg-blue-50/50"
                   iconColor="text-blue-500"
                 />
@@ -563,13 +584,14 @@ const PawPad = () => {
                   icon={Brain} 
                   label="Training" 
                   sub="Tap to log"
-                  onClick={() => quickLog("Training session")}
+                  onClick={() => quickLog("🎓 Training session")}
                   bg="bg-purple-50/50"
                   iconColor="text-purple-500"
                 />
               </div>
             </section>
 
+            {/* Supply Inventory */}
             <section className="bg-white p-8 rounded-[2.5rem] shadow-md border-2 border-[#EDE0CE] mb-10">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-xs font-black text-[#8A7560] uppercase tracking-wider flex items-center gap-2">
@@ -601,6 +623,7 @@ const PawPad = () => {
               </div>
             </section>
 
+            {/* Activity Feed */}
             <section>
               <h3 className="text-xs font-black text-[#8A7560] uppercase tracking-wider mb-4 flex items-center gap-2">
                 <ClipboardList size={14} /> Activity Timeline
@@ -634,10 +657,12 @@ const PawPad = () => {
           </motion.div>
         )}
 
+        {/* HEALTH TAB */}
         {currentTab === 'health' && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
             <h2 className="text-2xl font-black text-[#5C544E] mb-6">Health Tracker</h2>
             
+            {/* Vaccinations */}
             <section className="bg-white p-8 rounded-[2.5rem] shadow-md border-2 border-[#EDE0CE] mb-6">
               <h3 className="text-xs font-black text-[#8A7560] uppercase tracking-wider mb-6 flex items-center gap-2">
                 <Syringe size={14} /> Vaccination Schedule
@@ -655,7 +680,7 @@ const PawPad = () => {
                     </div>
                     <div className="text-xs text-stone-500 font-medium">
                       {vax.done ? (
-                        <>Last: {vax.date} - Next: {vax.nextDue}</>
+                        <>Last: {vax.date} • Next: {vax.nextDue}</>
                       ) : (
                         <>Due: {vax.nextDue}</>
                       )}
@@ -665,6 +690,7 @@ const PawPad = () => {
               </div>
             </section>
 
+            {/* Medications */}
             <section className="bg-white p-8 rounded-[2.5rem] shadow-md border-2 border-[#EDE0CE] mb-6">
               <h3 className="text-xs font-black text-[#8A7560] uppercase tracking-wider mb-6 flex items-center gap-2">
                 <Pill size={14} /> Active Medications
@@ -674,13 +700,14 @@ const PawPad = () => {
                   <div key={med.id} className="p-4 bg-purple-50/30 rounded-2xl border border-purple-100">
                     <div className="font-black text-[#423D38] mb-1">{med.name}</div>
                     <div className="text-xs text-stone-500 font-medium">
-                      {med.frequency} - Last given: {med.lastGiven}
+                      {med.frequency} • Last given: {med.lastGiven}
                     </div>
                   </div>
                 ))}
               </div>
             </section>
 
+            {/* Weight Tracking */}
             <section className="bg-white p-8 rounded-[2.5rem] shadow-md border-2 border-[#EDE0CE]">
               <h3 className="text-xs font-black text-[#8A7560] uppercase tracking-wider mb-4 flex items-center gap-2">
                 <Scale size={14} /> Weight History
@@ -696,6 +723,7 @@ const PawPad = () => {
           </motion.div>
         )}
 
+        {/* STATS TAB */}
         {currentTab === 'stats' && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
             <h2 className="text-2xl font-black text-[#5C544E] mb-6">Care Statistics</h2>
@@ -725,7 +753,7 @@ const PawPad = () => {
 
             <div className="bg-gradient-to-br from-[#E8621A]/10 to-[#FF7A35]/5 p-8 rounded-[2.5rem] border-2 border-[#E8621A]/20 text-center">
               <Star size={48} className="mx-auto text-[#E8621A] mb-3" fill="#E8621A" />
-              <h3 className="text-xl font-black text-[#5C544E] mb-2">Awesome Pet Parent!</h3>
+              <h3 className="text-xl font-black text-[#5C544E] mb-2">Awesome Pet Parent! 🎉</h3>
               <p className="text-sm text-[#8A7560] font-medium">
                 You're doing an amazing job caring for your furry friend!
               </p>
@@ -733,6 +761,7 @@ const PawPad = () => {
           </motion.div>
         )}
 
+        {/* PROFILE TAB */}
         {currentTab === 'profile' && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
             <h2 className="text-2xl font-black text-[#5C544E] mb-6">Pet Profile</h2>
@@ -822,6 +851,7 @@ const PawPad = () => {
               </div>
             </div>
 
+            {/* Emergency Contacts */}
             <div className="bg-white p-8 rounded-[2.5rem] shadow-md border-2 border-[#EDE0CE]">
               <h3 className="text-xs font-black text-[#8A7560] uppercase tracking-wider mb-6 flex items-center gap-2">
                 <Phone size={14} /> Emergency Contacts
@@ -847,6 +877,7 @@ const PawPad = () => {
         )}
       </main>
 
+      {/* Add Activity Modal */}
       <AnimatePresence>
         {showModal && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
