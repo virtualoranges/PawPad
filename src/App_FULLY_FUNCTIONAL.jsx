@@ -243,87 +243,164 @@ const PawPad = () => {
   };
 
   // Photo Gallery Functions
-  const handlePhotoUpload = (e) => {
+  const compressImage = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          // Create canvas for compression
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          
+          // Max dimensions (larger for better quality but still manageable)
+          const MAX_WIDTH = 1200;
+          const MAX_HEIGHT = 1200;
+          
+          let width = img.width;
+          let height = img.height;
+          
+          // Calculate new dimensions
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height = (height * MAX_WIDTH) / width;
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width = (width * MAX_HEIGHT) / height;
+              height = MAX_HEIGHT;
+            }
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          
+          // Draw and compress
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          // Convert to base64 with compression (0.8 quality = good balance)
+          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.8);
+          resolve(compressedBase64);
+        };
+        img.onerror = () => reject(new Error('Failed to load image'));
+        img.src = e.target.result;
+      };
+      reader.onerror = () => reject(new Error('Failed to read file'));
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handlePhotoUpload = async (e) => {
     const files = Array.from(e.target.files);
     if (!files || files.length === 0) return;
     
-    // Convert files to base64 for localStorage persistence
-    Promise.all(
-      files.map(file => {
-        return new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onloadend = () => {
-            resolve({
+    try {
+      // Show loading state
+      setToastMessage('Processing photos...');
+      setShowSuccessToast(true);
+      
+      // Compress and convert files
+      const newPhotos = await Promise.all(
+        files.map(async (file) => {
+          try {
+            const compressedUrl = await compressImage(file);
+            return {
               id: Date.now() + Math.random(),
-              url: reader.result, // base64 string
+              url: compressedUrl, // compressed base64 string
               date: new Date().toISOString(),
               caption: ''
-            });
-          };
-          reader.onerror = () => {
-            reject(new Error('Failed to read file'));
-          };
-          reader.readAsDataURL(file);
-        });
-      })
-    ).then(newPhotos => {
+            };
+          } catch (error) {
+            console.error('Failed to process image:', error);
+            return null;
+          }
+        })
+      );
+      
+      // Filter out failed images
+      const validPhotos = newPhotos.filter(p => p !== null);
+      
+      if (validPhotos.length === 0) {
+        setToastMessage('Failed to process photos');
+        setShowSuccessToast(true);
+        return;
+      }
+      
       // Use functional form to avoid stale state
       setPhotos(prevPhotos => {
-        const updatedPhotos = [...newPhotos, ...prevPhotos];
-        // Also save immediately to localStorage
+        const updatedPhotos = [...validPhotos, ...prevPhotos];
+        // Save immediately to localStorage
         try {
           localStorage.setItem('pawpad_photos', JSON.stringify(updatedPhotos));
-          console.log('Photos saved to localStorage:', updatedPhotos.length);
+          console.log('✅ Photos saved to localStorage:', updatedPhotos.length);
         } catch (error) {
-          console.error('Failed to save photos:', error);
+          console.error('❌ Failed to save photos to localStorage:', error);
+          if (error.name === 'QuotaExceededError') {
+            setToastMessage('Storage full! Delete some photos.');
+            setShowSuccessToast(true);
+          }
         }
         return updatedPhotos;
       });
       
       // Show success toast
-      setToastMessage(`${newPhotos.length} photo${newPhotos.length > 1 ? 's' : ''} uploaded! 📸`);
+      setToastMessage(`${validPhotos.length} photo${validPhotos.length > 1 ? 's' : ''} uploaded! 📸`);
       setShowSuccessToast(true);
-    }).catch(error => {
-      console.error('Error uploading photos:', error);
+      
+    } catch (error) {
+      console.error('❌ Error uploading photos:', error);
       setToastMessage('Failed to upload photos');
       setShowSuccessToast(true);
-    });
+    }
   };
 
   const deletePhoto = (id) => {
     setPhotos(prevPhotos => {
       const updatedPhotos = prevPhotos.filter(p => p.id !== id);
-      localStorage.setItem('pawpad_photos', JSON.stringify(updatedPhotos));
+      try {
+        localStorage.setItem('pawpad_photos', JSON.stringify(updatedPhotos));
+        console.log('✅ Photo deleted, remaining:', updatedPhotos.length);
+      } catch (error) {
+        console.error('❌ Failed to update localStorage:', error);
+      }
       return updatedPhotos;
     });
     setSelectedPhoto(null);
   };
 
   // Pet Profile Photo Change
-  const handleProfilePhotoChange = (e) => {
+  const handleProfilePhotoChange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
     
-    const reader = new FileReader();
-    reader.onloadend = () => {
+    try {
+      // Compress the image first
+      const compressedUrl = await compressImage(file);
+      
       setPetProfile(prevProfile => {
-        const updatedProfile = { ...prevProfile, photo: reader.result };
+        const updatedProfile = { ...prevProfile, photo: compressedUrl };
         // Save immediately
         try {
           localStorage.setItem('pawpad_pet_profile', JSON.stringify(updatedProfile));
-          console.log('Profile photo saved to localStorage');
+          console.log('✅ Profile photo saved to localStorage');
         } catch (error) {
-          console.error('Failed to save profile photo:', error);
+          console.error('❌ Failed to save profile photo:', error);
+          if (error.name === 'QuotaExceededError') {
+            setToastMessage('Storage full! Delete some photos.');
+            setShowSuccessToast(true);
+          }
         }
         return updatedProfile;
       });
-    };
-    reader.onerror = () => {
-      console.error('Failed to read profile photo');
+      
+      setToastMessage('Profile photo updated! 📸');
+      setShowSuccessToast(true);
+    } catch (error) {
+      console.error('❌ Failed to process profile photo:', error);
       setToastMessage('Failed to upload photo');
       setShowSuccessToast(true);
-    };
-    reader.readAsDataURL(file);
+    }
   };
 
   // Weight History Functions
@@ -849,7 +926,6 @@ const PawPad = () => {
                 <input 
                   type="file" 
                   accept="image/*" 
-                  capture="environment"
                   multiple 
                   onChange={handlePhotoUpload} 
                   className="hidden" 
@@ -1116,7 +1192,6 @@ const PawPad = () => {
                   <input 
                     type="file" 
                     accept="image/*"
-                    capture="environment"
                     onChange={handleProfilePhotoChange}
                     className="hidden" 
                   />
