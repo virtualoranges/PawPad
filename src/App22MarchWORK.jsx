@@ -10,12 +10,6 @@ import {
   Edit, Check, Download
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { createClient } from '@supabase/supabase-js';
-
-// Supabase Configuration - Using Environment Variables
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-const supabase = createClient(supabaseUrl, supabaseKey);
 
 const BREEDS = {
   dogs: [
@@ -121,8 +115,8 @@ const PawPad = () => {
   const [newWeight, setNewWeight] = useState({ weight: '', date: new Date().toISOString().split('T')[0] });
   
   const [vaccinations, setVaccinations] = useState([
-    { id: 1, name: 'Rabies', date: '', nextDue: '', done: true },
-    { id: 2, name: 'DHPP', date: '', nextDue: '', done: false },
+    { id: 1, name: 'Rabies', date: new Date().toISOString().split('T')[0], nextDue: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0], done: true },
+    { id: 2, name: 'DHPP', date: '', nextDue: new Date(new Date().setMonth(new Date().getMonth() + 3)).toISOString().split('T')[0], done: false },
   ]);
   
   const [medications, setMedications] = useState([
@@ -158,6 +152,7 @@ const PawPad = () => {
     const savedPet = localStorage.getItem('pawpad_pet_profile');
     const savedActivities = localStorage.getItem('pawpad_activities');
     const savedPhotos = localStorage.getItem('pawpad_photos');
+    const savedMessages = localStorage.getItem('pawpad_messages');
     const savedWeight = localStorage.getItem('pawpad_weight');
     const savedVaccinations = localStorage.getItem('pawpad_vaccinations');
     const savedMedications = localStorage.getItem('pawpad_medications');
@@ -174,37 +169,15 @@ const PawPad = () => {
       setPhotos(parsedPhotos);
       console.log('🟢 Loaded', parsedPhotos.length, 'photos from localStorage');
     }
+    if (savedMessages) setMessages(JSON.parse(savedMessages));
     if (savedWeight) setWeightHistory(JSON.parse(savedWeight));
     if (savedVaccinations) setVaccinations(JSON.parse(savedVaccinations));
     if (savedMedications) setMedications(JSON.parse(savedMedications));
     if (savedContacts) setEmergencyContacts(JSON.parse(savedContacts));
     
-    // Load messages from Supabase
-    fetchMessages();
-    
-    // Subscribe to real-time message updates
-    const messageSubscription = supabase
-      .channel('messages')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, (payload) => {
-        console.log('🔵 Message change:', payload);
-        if (payload.eventType === 'INSERT') {
-          setMessages(prev => [payload.new, ...prev]);
-        } else if (payload.eventType === 'DELETE') {
-          setMessages(prev => prev.filter(m => m.id !== payload.old.id));
-        } else if (payload.eventType === 'UPDATE') {
-          setMessages(prev => prev.map(m => m.id === payload.new.id ? payload.new : m));
-        }
-      })
-      .subscribe();
-    
     // Mark photos as loaded so we don't overwrite them
     setPhotosLoaded(true);
     console.log('🟢 Initial data load complete');
-    
-    // Cleanup subscription on unmount
-    return () => {
-      messageSubscription.unsubscribe();
-    };
   }, []);
 
   useEffect(() => {
@@ -222,6 +195,12 @@ const PawPad = () => {
       console.log('🔵 Auto-saved', photos.length, 'photos to localStorage');
     }
   }, [photos, photosLoaded]);
+
+  useEffect(() => {
+    if (messages.length > 0) {
+      localStorage.setItem('pawpad_messages', JSON.stringify(messages));
+    }
+  }, [messages]);
 
   useEffect(() => {
     if (weightHistory.length > 0) {
@@ -249,35 +228,6 @@ const PawPad = () => {
       return () => clearTimeout(timer);
     }
   }, [showSuccessToast]);
-
-  // Set vaccination dates after mount (fixes mobile Safari date issues)
-  useEffect(() => {
-    const savedVaccinations = localStorage.getItem('pawpad_vaccinations');
-    if (!savedVaccinations) {
-      const today = new Date();
-      const nextYear = new Date();
-      nextYear.setFullYear(today.getFullYear() + 1);
-      const threeMonths = new Date();
-      threeMonths.setMonth(today.getMonth() + 3);
-      
-      setVaccinations([
-        { 
-          id: 1, 
-          name: 'Rabies', 
-          date: today.toISOString().split('T')[0], 
-          nextDue: nextYear.toISOString().split('T')[0], 
-          done: true 
-        },
-        { 
-          id: 2, 
-          name: 'DHPP', 
-          date: '', 
-          nextDue: threeMonths.toISOString().split('T')[0], 
-          done: false 
-        },
-      ]);
-    }
-  }, []);
 
   useEffect(() => {
     if (showNotifs) {
@@ -472,22 +422,6 @@ const PawPad = () => {
   };
 
   // PetTalk Community Functions
-  const fetchMessages = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('messages')
-        .select('*')
-        .order('created_at', { ascending: false });
-      
-      if (error) throw error;
-      
-      setMessages(data || []);
-      console.log('🟢 Loaded', data?.length || 0, 'messages from Supabase');
-    } catch (error) {
-      console.error('🔴 Error fetching messages:', error);
-    }
-  };
-
   const handleMessagePhotoUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -533,71 +467,34 @@ const PawPad = () => {
     reader.readAsDataURL(file);
   };
 
-  const postMessage = async () => {
+  const postMessage = () => {
     if (!newMessage.trim() && !messagePhoto) return;
     
     const message = {
-      user_name: currentUser?.name || 'Anonymous',
+      id: Date.now(),
+      user: currentUser?.name || 'Anonymous',
       text: newMessage,
       photo: messagePhoto,
-      likes: 0,
-      created_at: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      likes: 0
     };
     
-    try {
-      const { data, error } = await supabase
-        .from('messages')
-        .insert([message])
-        .select();
-      
-      if (error) throw error;
-      
-      setNewMessage('');
-      setMessagePhoto(null);
-      
-      setToastMessage('Message posted! 🎉');
-      setShowSuccessToast(true);
-      
-      console.log('🟢 Message posted to Supabase');
-    } catch (error) {
-      console.error('🔴 Error posting message:', error);
-      setToastMessage('Failed to post message');
-      setShowSuccessToast(true);
-    }
+    setMessages(prev => [message, ...prev]);
+    setNewMessage('');
+    setMessagePhoto(null);
+    
+    setToastMessage('Message posted! 🎉');
+    setShowSuccessToast(true);
   };
 
-  const deleteMessage = async (id) => {
-    try {
-      const { error } = await supabase
-        .from('messages')
-        .delete()
-        .eq('id', id);
-      
-      if (error) throw error;
-      
-      console.log('🟢 Message deleted from Supabase');
-    } catch (error) {
-      console.error('🔴 Error deleting message:', error);
-    }
+  const deleteMessage = (id) => {
+    setMessages(prev => prev.filter(m => m.id !== id));
   };
 
-  const likeMessage = async (id) => {
-    try {
-      // Get current likes
-      const message = messages.find(m => m.id === id);
-      if (!message) return;
-      
-      const { error } = await supabase
-        .from('messages')
-        .update({ likes: message.likes + 1 })
-        .eq('id', id);
-      
-      if (error) throw error;
-      
-      console.log('🟢 Message liked in Supabase');
-    } catch (error) {
-      console.error('🔴 Error liking message:', error);
-    }
+  const likeMessage = (id) => {
+    setMessages(prev => prev.map(m => 
+      m.id === id ? { ...m, likes: m.likes + 1 } : m
+    ));
   };
 
   // Pet Profile Photo Change - WITH COMPRESSION
@@ -1402,13 +1299,13 @@ const PawPad = () => {
                   >
                     <div className="flex items-start gap-3 mb-3">
                       <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#00E5DC] to-[#FF7A35] flex items-center justify-center text-white font-black flex-shrink-0">
-                        {message.user_name?.[0] || 'A'}
+                        {message.user[0]}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between mb-1">
-                          <h4 className="font-black text-[#5C544E]">{message.user_name}</h4>
+                          <h4 className="font-black text-[#5C544E]">{message.user}</h4>
                           <span className="text-xs text-stone-400 font-medium">
-                            {new Date(message.created_at).toLocaleDateString()} {new Date(message.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                            {new Date(message.timestamp).toLocaleDateString()} {new Date(message.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                           </span>
                         </div>
                         
@@ -1437,7 +1334,7 @@ const PawPad = () => {
                             {message.likes > 0 && message.likes}
                           </button>
                           
-                          {message.user_name === (currentUser?.name || 'Anonymous') && (
+                          {message.user === (currentUser?.name || 'Anonymous') && (
                             <button
                               onClick={() => deleteMessage(message.id)}
                               className="flex items-center gap-1 text-sm font-bold text-red-400 hover:text-red-500 transition-colors cursor-pointer"
