@@ -12,9 +12,9 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@supabase/supabase-js';
 
-// Supabase Configuration - Using Environment Variables
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+// Supabase Configuration
+const supabaseUrl = 'https://gbigszvinyoxgzeotoqm.supabase.co';
+const supabaseKey = 'sb_publishable_QZDj1YBdl4qKygWxyhXkVA_EBDrJMPm';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 const BREEDS = {
@@ -24,7 +24,6 @@ const BREEDS = {
     { name: 'Poodle', care: 'Genius-level smart. Professional grooming every 6 weeks.', wiki: 'https://en.wikipedia.org/wiki/Poodle' },
     { name: 'German Shepherd', care: 'Needs a "job" to do. Excellent for active owners.', wiki: 'https://en.wikipedia.org/wiki/German_Shepherd' },
     { name: 'Beagle', care: 'Follows their nose everywhere! Needs a fenced yard.', wiki: 'https://en.wikipedia.org/wiki/Beagle' },
-    { name: 'Australian Cobberdog', care: 'The Australian Cobberdog was bred to be an ideal candidate for being therapy and service dogs.', wiki: 'https://en.wikipedia.org/wiki/Australian_Cobberdog' },
     { name: 'Dachshund', care: 'Small body, big heart. Watch their backs - no jumping!', wiki: 'https://en.wikipedia.org/wiki/Dachshund' },
     { name: 'Siberian Husky', care: 'Talkative escape artists. Needs heavy exercise.', wiki: 'https://en.wikipedia.org/wiki/Siberian_Husky' },
     { name: 'Labrador', care: "America's sweetheart. Watch their weight - they love food!", wiki: 'https://en.wikipedia.org/wiki/Labrador_Retriever' },
@@ -153,6 +152,11 @@ const PawPad = () => {
   const [toastMessage, setToastMessage] = useState('');
   const [photosLoaded, setPhotosLoaded] = useState(false);
 
+// PetTalk Chat State
+const [messages, setMessages] = useState([]);
+const [newMessage, setNewMessage] = useState('');
+const [chatImage, setChatImage] = useState(null);
+
   useEffect(() => {
     console.log('🔵 Loading data from localStorage...');
     const savedUser = localStorage.getItem('pawpad_user');
@@ -201,6 +205,9 @@ const PawPad = () => {
     // Mark photos as loaded so we don't overwrite them
     setPhotosLoaded(true);
     console.log('🟢 Initial data load complete');
+
+    const savedMessages = localStorage.getItem('pawpad_messages');
+    if (savedMessages) setMessages(JSON.parse(savedMessages));
     
     // Cleanup subscription on unmount
     return () => {
@@ -288,6 +295,10 @@ const PawPad = () => {
       return () => clearInterval(interval);
     }
   }, [showNotifs]);
+
+useEffect(() => {
+  localStorage.setItem('pawpad_messages', JSON.stringify(messages));
+}, [messages]);
 
   const handleAuth = (e) => {
     e.preventDefault();
@@ -698,12 +709,21 @@ const PawPad = () => {
 
   // Vaccination Functions
   const toggleVaccination = (id) => {
-    setVaccinations(vaccinations.map(vax => 
-      vax.id === id 
-        ? { ...vax, done: !vax.done, date: !vax.done ? new Date().toISOString().split('T')[0] : '' }
-        : vax
-    ));
-  };
+  setVaccinations(vaccinations.map(vax => {
+    if (vax.id !== id) return vax;
+
+    const today = new Date();
+    const nextYear = new Date();
+    nextYear.setFullYear(today.getFullYear() + 1);
+
+    return {
+      ...vax,
+      done: !vax.done,
+      date: !vax.done ? today.toISOString().split('T')[0] : '',
+      nextDue: nextYear.toISOString().split('T')[0]
+    };
+  }));
+};
 
   // Medication Functions
   const addMedication = () => {
@@ -777,7 +797,7 @@ const PawPad = () => {
                 <Heart size={48} className="text-[#f9a57a]" fill="#f9a57a" />
               </div>
             </div>
-            <h1 className="text-4xl font-black text-[#5C544E] mb-2">PAWPAD</h1>
+            <h1 className="text-4xl font-black text-[#5C544E] mb-2">PetPal</h1>
             <p className="text-[#8A7560] font-medium">Your Pet's Digital Companion</p>
           </div>
 
@@ -873,7 +893,7 @@ const PawPad = () => {
     <div className="min-h-screen bg-[#FDFBF7] text-[#423D38] font-sans pb-24">
       <nav className="p-5 flex justify-between items-center bg-white/70 backdrop-blur-lg sticky top-0 z-50 border-b border-stone-100 shadow-sm">
         <h1 className="text-xl font-black tracking-tighter flex items-center gap-2 text-[#f9a57a]">
-          <Heart size={20} fill="#f9a57a" /> PAWPAD
+          <Heart size={20} fill="#f9a57a" /> PetPal
         </h1>
         <div className="flex gap-3 relative">
           <button 
@@ -1163,7 +1183,11 @@ const PawPad = () => {
                       </span>
                       <button
                         onClick={() => deleteActivity(i)}
+<<<<<<< HEAD
+                        className="p-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 hover:bg-red-50 rounded-xl text-red-400 transition-all"
+=======
                         className="p-2 opacity-50 md:opacity-0 md:group-hover:opacity-100 hover:opacity-100 hover:bg-red-50 rounded-xl text-red-400 transition-all cursor-pointer"
+>>>>>>> 30810e8 (Update)
                       >
                         <Trash2 size={16} />
                       </button>
@@ -1597,6 +1621,76 @@ const PawPad = () => {
             </div>
           </motion.div>
         )}
+
+        
+        {currentTab === 'pettalk' && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+            <h2 className="text-2xl font-black text-[#5C544E] mb-6">PetTalk Community</h2>
+
+            <div className="bg-white rounded-3xl p-4 mb-4 h-[400px] overflow-y-auto border border-stone-200">
+              {messages.length === 0 && (
+                <p className="text-center text-stone-400 text-sm">No messages yet 🐾</p>
+              )}
+
+              {messages.map((msg, i) => (
+                <div key={i} className="mb-4">
+                  <div className="text-xs text-stone-400 font-bold">
+                    {msg.user} • {msg.time}
+                  </div>
+
+                  <div className="bg-[#FDFBF7] p-3 rounded-2xl mt-1 text-sm font-medium">
+                    {msg.text}
+                    {msg.image && (
+                      <img src={msg.image} className="mt-2 rounded-xl max-h-40" />
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <input
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                placeholder="Write something..."
+                className="p-4 rounded-2xl border border-stone-200 outline-none"
+              />
+
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  const file = e.target.files[0];
+                  if (!file) return;
+                  const reader = new FileReader();
+                  reader.onload = (e) => setChatImage(e.target.result);
+                  reader.readAsDataURL(file);
+                }}
+              />
+
+              <button
+                onClick={() => {
+                  if (!newMessage && !chatImage) return;
+
+                  const msg = {
+                    user: currentUser?.name || 'Anonymous',
+                    text: newMessage,
+                    image: chatImage,
+                    time: new Date().toLocaleTimeString()
+                  };
+
+                  setMessages([msg, ...messages]);
+                  setNewMessage('');
+                  setChatImage(null);
+                }}
+                className="bg-[#f9a57a] text-white py-3 rounded-2xl font-bold"
+              >
+                Send
+              </button>
+            </div>
+          </motion.div>
+        )}
+
 
         {currentTab === 'profile' && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
