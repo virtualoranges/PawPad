@@ -1,4 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import ClaimPage from "./pages/claim.jsx";
+import SettingsPage from "./pages/settings.jsx";
+import SetupPet from "./pages/setup-pet.jsx";
+import FinderView from "./pages/p/[id].jsx";
+import LoginPage from "./pages/LoginPage.jsx";
+import Dashboard from "./pages/dashboard.jsx"; // Double check the path is correct
 import { 
   Dog, Cat, Calendar, Bell, ShoppingCart, Heart, Search, Plus, 
   CheckCircle2, Circle, Settings, LogOut, User, Mail, Lock,
@@ -12,10 +19,13 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@supabase/supabase-js';
 
-// Supabase Configuration - Using Environment Variables
+// Supabase Configuration
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-const supabase = createClient(supabaseUrl, supabaseKey);
+export const supabase = createClient(supabaseUrl, supabaseKey);
+
+
+
 
 const BREEDS = {
   dogs: [
@@ -81,6 +91,25 @@ const REMINDERS = [
   { icon: Moon, text: "Bedtime routine", color: "text-slate-500" },
   { icon: Camera, text: "Capture today's memories", color: "text-teal-500" },
 ];
+
+const ActionCard = ({ icon: Icon, label, color = "bg-gray-50", iconColor = "text-gray-500", onClick }) => {
+  // Safe check: if color is missing, use gray. If it exists, try to replace.
+  const bgColor = color ? color.replace('50', '100') : "bg-gray-100";
+
+  return (
+    <motion.button
+      whileHover={{ scale: 1.02 }}
+      whileTap={{ scale: 0.95 }}
+      onClick={onClick}
+      className={`flex flex-col items-center justify-center p-4 rounded-2xl ${color} shadow-sm border border-white/50 transition-all`}
+    >
+      <div className={`w-10 h-10 rounded-full ${bgColor} flex items-center justify-center mb-2`}>
+        <Icon className={`w-6 h-6 ${iconColor}`} />
+      </div>
+      <span className="text-xs font-bold text-[#423D38] uppercase tracking-wider text-center">{label}</span>
+    </motion.button>
+  );
+};
 
 const PawPad = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -155,7 +184,7 @@ const PawPad = () => {
 
   useEffect(() => {
     console.log('🔵 Loading data from localStorage...');
-    const savedUser = localStorage.getItem('pawpad_user');
+    
     const savedPet = localStorage.getItem('pawpad_pet_profile');
     const savedActivities = localStorage.getItem('pawpad_activities');
     const savedPhotos = localStorage.getItem('pawpad_photos');
@@ -164,10 +193,36 @@ const PawPad = () => {
     const savedMedications = localStorage.getItem('pawpad_medications');
     const savedContacts = localStorage.getItem('pawpad_emergency_contacts');
     
-    if (savedUser) {
-      setCurrentUser(JSON.parse(savedUser));
-      setIsAuthenticated(true);
-    }
+//new code
+    // 1. ASK SUPABASE IF THIS USER IS REAL
+    const syncSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        setIsAuthenticated(true);
+        setCurrentUser({
+          name: session.user.user_metadata?.full_name || session.user.email.split('@')[0],
+          email: session.user.email
+        });
+      }
+    };
+    syncSession();
+
+    // 2. LISTEN FOR LOGOUT/LOGIN IN REAL-TIME
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) {
+        setIsAuthenticated(true);
+        setCurrentUser({
+          name: session.user.user_metadata?.full_name || session.user.email.split('@')[0],
+          email: session.user.email
+        });
+      } else {
+        setIsAuthenticated(false);
+        setCurrentUser(null);
+      }
+    });
+
+
+    
     if (savedPet) setPetProfile(JSON.parse(savedPet));
     if (savedActivities) setActivities(JSON.parse(savedActivities));
     if (savedPhotos) {
@@ -189,10 +244,20 @@ const PawPad = () => {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, (payload) => {
         console.log('🔵 Message change:', payload);
         if (payload.eventType === 'INSERT') {
-          setMessages(prev => [payload.new, ...prev]);
+          // Check if message already exists (from optimistic update or other source)
+          setMessages(prev => {
+            const exists = prev.some(m => m.id === payload.new.id);
+            if (exists) {
+              // Replace optimistic message with real one
+              return prev.map(m => m.id === payload.new.id || m.isOptimistic ? payload.new : m);
+            }
+            // Add new message only if it doesn't exist
+            return [payload.new, ...prev];
+          });
         } else if (payload.eventType === 'DELETE') {
           setMessages(prev => prev.filter(m => m.id !== payload.old.id));
         } else if (payload.eventType === 'UPDATE') {
+          // Update message, preserving any optimistic changes
           setMessages(prev => prev.map(m => m.id === payload.new.id ? payload.new : m));
         }
       })
@@ -202,9 +267,10 @@ const PawPad = () => {
     setPhotosLoaded(true);
     console.log('🟢 Initial data load complete');
     
-    // Cleanup subscription on unmount
+    // Cleanup subscriptions on unmount
     return () => {
       messageSubscription.unsubscribe();
+      subscription.unsubscribe();
     };
   }, []);
 
@@ -289,37 +355,63 @@ const PawPad = () => {
     }
   }, [showNotifs]);
 
-  const handleAuth = (e) => {
-    e.preventDefault();
-    if (authMode === 'register') {
-      const newUser = {
-        name: authForm.name,
-        email: authForm.email,
-        joinedDate: new Date().toISOString()
-      };
-      localStorage.setItem('pawpad_user', JSON.stringify(newUser));
-      setCurrentUser(newUser);
-      setIsAuthenticated(true);
-      setAuthForm({ email: '', password: '', name: '' });
-    } else {
-      const user = {
-        name: authForm.email.split('@')[0],
-        email: authForm.email,
-        joinedDate: new Date().toISOString()
-      };
-      localStorage.setItem('pawpad_user', JSON.stringify(user));
-      setCurrentUser(user);
-      setIsAuthenticated(true);
-      setAuthForm({ email: '', password: '', name: '' });
+  // Google Login Handler
+  const handleGoogleLogin = async () => {
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          // This tells Google to send the user back to your app
+          redirectTo: window.location.origin, 
+        },
+      });
+      if (error) throw error;
+    } catch (error) {
+      alert("Google Error: " + error.message);
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('pawpad_user');
-    setCurrentUser(null);
-    setIsAuthenticated(false);
-    setShowProfile(false);
-  };
+//new Gemini script for new login page
+
+const handleAuth = async (e) => {
+  e.preventDefault();
+  
+  try {
+    const { email, password, name } = authForm;
+
+    if (authMode === 'register') {
+      // ✅ THE RIGHT WAY: Don't name the result "supabase"
+      const { data: authData, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { full_name: name } }
+      });
+
+      if (error) throw error;
+      
+      // Use authData instead of data
+      // In your Auth logic
+if (authData.user) {
+  setToastMessage("Welcome to the pack! 🐾");
+  setShowSuccessToast(true);
+  setIsAuthenticated(true);
+  
+  // Auto-hide after 3 seconds so it doesn't stay stuck
+  setTimeout(() => setShowSuccessToast(false), 3000);
+}
+    } else {
+      // Login logic
+      const { data: loginData, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+      if (error) throw error;
+      if (loginData.user) setIsAuthenticated(true);
+    }
+  } catch (error) {
+    alert("Error: " + error.message);
+  }
+};
 
   // Photo Gallery Functions - WITH WORKING COMPRESSION
   const handlePhotoUpload = (e) => {
@@ -545,6 +637,15 @@ const PawPad = () => {
       created_at: new Date().toISOString()
     };
     
+    // Create temporary ID for optimistic update
+    const tempId = Date.now();
+    const optimisticMessage = { ...message, id: tempId, isOptimistic: true };
+    
+    // OPTIMISTIC UPDATE: Add message to UI immediately
+    setMessages(prev => [optimisticMessage, ...prev]);
+    setNewMessage('');
+    setMessagePhoto(null);
+    
     try {
       const { data, error } = await supabase
         .from('messages')
@@ -553,14 +654,23 @@ const PawPad = () => {
       
       if (error) throw error;
       
-      setNewMessage('');
-      setMessagePhoto(null);
+      // Replace optimistic message with real one from database
+      if (data && data[0]) {
+        setMessages(prev => prev.map(m => 
+          m.id === tempId ? data[0] : m
+        ));
+      }
       
       setToastMessage('Message posted! 🎉');
       setShowSuccessToast(true);
       
       console.log('🟢 Message posted to Supabase');
     } catch (error) {
+      // Remove optimistic message on error
+      setMessages(prev => prev.filter(m => m.id !== tempId));
+      setNewMessage(message.text);
+      setMessagePhoto(message.photo);
+      
       console.error('🔴 Error posting message:', error);
       setToastMessage('Failed to post message');
       setShowSuccessToast(true);
@@ -568,34 +678,65 @@ const PawPad = () => {
   };
 
   const deleteMessage = async (id) => {
+    // Store message in case we need to revert
+    const messageToDelete = messages.find(m => m.id === id);
+    if (!messageToDelete) return;
+    
+    // OPTIMISTIC UPDATE: Remove from UI immediately
+    setMessages(prev => prev.filter(m => m.id !== id));
+    
     try {
       const { error } = await supabase
         .from('messages')
         .delete()
         .eq('id', id);
       
-      if (error) throw error;
-      
-      console.log('🟢 Message deleted from Supabase');
+      if (error) {
+        // If error, restore the message
+        setMessages(prev => [messageToDelete, ...prev].sort((a, b) => 
+          new Date(b.created_at) - new Date(a.created_at)
+        ));
+        console.error('🔴 Error deleting message:', error);
+        setToastMessage('Failed to delete message');
+        setShowSuccessToast(true);
+      } else {
+        console.log('🟢 Message deleted from Supabase');
+      }
     } catch (error) {
+      // Restore message on error
+      setMessages(prev => [messageToDelete, ...prev].sort((a, b) => 
+        new Date(b.created_at) - new Date(a.created_at)
+      ));
       console.error('🔴 Error deleting message:', error);
     }
   };
 
   const likeMessage = async (id) => {
     try {
-      // Get current likes
+      // Get current message
       const message = messages.find(m => m.id === id);
       if (!message) return;
       
+      // OPTIMISTIC UPDATE: Update UI immediately before database
+      setMessages(prev => prev.map(m => 
+        m.id === id ? { ...m, likes: m.likes + 1 } : m
+      ));
+      
+      // Then update database (real-time will keep it in sync)
       const { error } = await supabase
         .from('messages')
         .update({ likes: message.likes + 1 })
         .eq('id', id);
       
-      if (error) throw error;
-      
-      console.log('🟢 Message liked in Supabase');
+      if (error) {
+        // If error, revert the optimistic update
+        setMessages(prev => prev.map(m => 
+          m.id === id ? { ...m, likes: message.likes } : m
+        ));
+        console.error('🔴 Error liking message:', error);
+      } else {
+        console.log('🟢 Message liked in Supabase');
+      }
     } catch (error) {
       console.error('🔴 Error liking message:', error);
     }
@@ -684,45 +825,130 @@ const PawPad = () => {
     reader.readAsDataURL(file);
   };
 
-  // Weight History Functions
+ // --- FIXED WEIGHT LOGIC ---
+
+  // 1. Load data ONLY ONCE when the app starts
+  useEffect(() => {
+    const savedWeight = localStorage.getItem('pawpad_weight_history');
+    if (savedWeight && savedWeight !== "[]") {
+      setWeightHistory(JSON.parse(savedWeight));
+    }
+  }, []); // This empty [] is critical - it means "run once"
+
+  // 2. Save data ONLY if the list actually has something in it
+  useEffect(() => {
+    if (weightHistory.length > 0) {
+      localStorage.setItem('pawpad_weight_history', JSON.stringify(weightHistory));
+    }
+  }, [weightHistory]);
+
+  // 3. The Add Function
   const addWeightEntry = () => {
     if (newWeight.weight && newWeight.date) {
-      setWeightHistory([
+      const updatedHistory = [
         { id: Date.now(), weight: parseFloat(newWeight.weight), date: newWeight.date },
         ...weightHistory
-      ]);
+      ];
+      setWeightHistory(updatedHistory);
       setNewWeight({ weight: '', date: new Date().toISOString().split('T')[0] });
       setShowWeightModal(false);
     }
   };
 
+
   // Vaccination Functions
   const toggleVaccination = (id) => {
-    setVaccinations(vaccinations.map(vax => 
-      vax.id === id 
-        ? { ...vax, done: !vax.done, date: !vax.done ? new Date().toISOString().split('T')[0] : '' }
-        : vax
-    ));
-  };
+  setVaccinations(prev =>
+    prev.map(v => {
+      if (v.id !== id) return v;
 
-  // Medication Functions
+      const today = new Date();
+      const todayStr = today.toISOString().split('T')[0];
+
+      const next = new Date(today);
+      next.setFullYear(today.getFullYear() + 1);
+      const nextStr = next.toISOString().split('T')[0];
+
+      if (!v.done) {
+        return {
+          ...v,
+          done: true,
+          date: todayStr,
+          nextDue: nextStr
+        };
+      } else {
+        return {
+          ...v,
+          done: false,
+          date: "",
+          nextDue: ""
+        };
+      }
+    })
+  );
+};
+
+// --- Medication Functions (Fixed with Save) ---
+
+  // Load Medications on startup
+  useEffect(() => {
+    const savedMeds = localStorage.getItem('pawpad_medications');
+    if (savedMeds) setMedications(JSON.parse(savedMeds));
+  }, []);
+
+  // Save Medications whenever they change
+  useEffect(() => {
+    if (medications.length > 0) {
+      localStorage.setItem('pawpad_medications', JSON.stringify(medications));
+    }
+  }, [medications]);
+
   const addMedication = () => {
     if (newMedication.name) {
-      setMedications([
+      const updatedMeds = [
         ...medications,
         { id: Date.now(), ...newMedication }
-      ]);
+      ];
+      setMedications(updatedMeds);
       setNewMedication({ name: '', frequency: 'Daily', lastGiven: new Date().toISOString().split('T')[0] });
       setShowMedicationModal(false);
     }
   };
 
   const deleteMedication = (id) => {
-    setMedications(medications.filter(m => m.id !== id));
+    const filteredMeds = medications.filter(m => m.id !== id);
+    setMedications(filteredMeds);
+    // If we delete the last one, clear the storage
+    if (filteredMeds.length === 0) localStorage.removeItem('pawpad_medications');
   };
 
-  // Emergency Contacts Functions
+  // --- Emergency Contacts Logic (Load & Save) ---
+
+  // 1. Load contacts from memory when the app opens
+  useEffect(() => {
+    const savedContacts = localStorage.getItem('pawpad_emergency_contacts');
+    if (savedContacts) {
+      setEmergencyContacts(JSON.parse(savedContacts));
+    }
+  }, []);
+
+  // 2. Save contacts to memory whenever they change
+  useEffect(() => {
+    if (emergencyContacts && Object.keys(emergencyContacts).length > 0) {
+      localStorage.setItem('pawpad_emergency_contacts', JSON.stringify(emergencyContacts));
+    }
+  }, [emergencyContacts]);
+
+  // 3. The Fixed Save Function
   const saveEmergencyContact = (type) => {
+    // If you were typing into 'editingContact', we move that data into the main list
+    if (editingContact) {
+      setEmergencyContacts(prev => ({
+        ...prev,
+        [type]: editingContact
+      }));
+    }
+    // Close the edit mode
     setEditingContact(null);
   };
 
@@ -771,6 +997,7 @@ const PawPad = () => {
           animate={{ scale: 1, opacity: 1 }}
           className="w-full max-w-md"
         >
+          {/* Header Section */}
           <div className="text-center mb-8">
             <div className="flex justify-center mb-4">
               <div className="bg-white p-6 rounded-[2rem] shadow-xl">
@@ -781,9 +1008,13 @@ const PawPad = () => {
             <p className="text-[#8A7560] font-medium">Your Pet's Digital Companion</p>
           </div>
 
+          {/* White Card Container */}
           <div className="bg-white rounded-[3rem] p-10 shadow-2xl border border-[#EDE0CE]">
+            
+            {/* 1. Tabs for Login/Register */}
             <div className="flex gap-2 mb-8">
               <button
+                type="button"
                 onClick={() => setAuthMode('login')}
                 className={`flex-1 py-3 rounded-2xl font-bold text-sm transition-all cursor-pointer ${
                   authMode === 'login' 
@@ -794,6 +1025,7 @@ const PawPad = () => {
                 Sign In
               </button>
               <button
+                type="button"
                 onClick={() => setAuthMode('register')}
                 className={`flex-1 py-3 rounded-2xl font-bold text-sm transition-all cursor-pointer ${
                   authMode === 'register' 
@@ -805,6 +1037,7 @@ const PawPad = () => {
               </button>
             </div>
 
+            {/* 2. The Main Form */}
             <form onSubmit={handleAuth} className="space-y-4">
               {authMode === 'register' && (
                 <div className="relative">
@@ -846,17 +1079,40 @@ const PawPad = () => {
 
               <button
                 type="submit"
-                className="w-full bg-[#f9a57a] hover:bg-[#e88b5f] text-white py-4 rounded-2xl font-black text-sm uppercase tracking-wider shadow-lg shadow-[#f9a57a]/30 transition-all active:scale-95"
+                className="w-full bg-[#f9a57a] hover:bg-[#e88b5f] text-white py-4 rounded-2xl font-black text-sm uppercase tracking-wider shadow-lg shadow-[#f9a57a]/30 transition-all active:scale-95 cursor-pointer mt-4"
               >
                 {authMode === 'login' ? 'Sign In' : 'Create Account'}
               </button>
             </form>
 
+            {/* 3. Social Login Section */}
+            <div className="mt-6">
+              <div className="relative mb-6">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-stone-200"></div>
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-2 bg-white text-stone-500">Or continue with</span>
+                </div>
+              </div>
+
+              <button 
+                type="button" 
+                onClick={handleGoogleLogin} 
+                className="w-full flex items-center justify-center gap-3 bg-white border-2 border-stone-100 py-4 rounded-2xl font-bold hover:bg-stone-50 transition-all active:scale-95 cursor-pointer"
+              >
+                <img src="https://www.google.com/favicon.ico" className="w-5 h-5" alt="" />
+                Google
+              </button>
+            </div>
+
+            {/* Bottom Toggle Text */}
             <p className="text-center text-xs text-stone-400 mt-6">
               {authMode === 'login' ? "Don't have an account? " : "Already have an account? "}
               <button
+                type="button"
                 onClick={() => setAuthMode(authMode === 'login' ? 'register' : 'login')}
-                className="text-[#f9a57a] font-bold"
+                className="text-[#f9a57a] font-bold hover:underline"
               >
                 {authMode === 'login' ? 'Register' : 'Sign In'}
               </button>
@@ -867,10 +1123,20 @@ const PawPad = () => {
     );
   }
 
+  // end of REGISTER FORM
+
   const currentReminder = REMINDERS[currentReminderIndex];
 
+
+
+
+
+
+
   return (
-    <div className="min-h-screen bg-[#FDFBF7] text-[#423D38] font-sans pb-24">
+    <Router>
+      <Routes>
+        <Route path="/" element={<div className="min-h-screen bg-[#FDFBF7] text-[#423D38] font-sans pb-24">
       <nav className="p-5 flex justify-between items-center bg-white/70 backdrop-blur-lg sticky top-0 z-50 border-b border-stone-100 shadow-sm">
         <h1 className="text-xl font-black tracking-tighter flex items-center gap-2 text-[#f9a57a]">
           <Heart size={20} fill="#f9a57a" /> PAWPAD
@@ -976,7 +1242,7 @@ const PawPad = () => {
             { id: 'pettalk', label: 'PetTalk', icon: Users },
             { id: 'profile', label: 'Profile', icon: User },
             { id: 'health', label: 'Health', icon: Stethoscope },
-            { id: 'stats', label: 'Stats', icon: BarChart3 },
+            
           ].map(tab => {
             const Icon = tab.icon;
             return (
@@ -1016,11 +1282,7 @@ const PawPad = () => {
               <Dog className="absolute -right-6 -bottom-6 w-48 h-48 opacity-10 text-[#8A7560] rotate-12" />
             </section>
 
-            <div className="grid grid-cols-3 gap-3 mb-10">
-              <StatCard icon={Activity} value={activities.length} label="Activities" color="bg-blue-50" iconColor="text-blue-500" />
-              <StatCard icon={CheckCircle2} value={supplies.filter(s => s.checked).length} label="Completed" color="bg-green-50" iconColor="text-green-500" />
-              <StatCard icon={Award} value="92%" label="Care Score" color="bg-orange-50" iconColor="text-orange-500" />
-            </div>
+            
 
             <section className="mb-12">
               <h3 className="text-xs font-black text-[#8A7560] uppercase tracking-wider mb-4 flex items-center gap-2">
@@ -1483,7 +1745,19 @@ const PawPad = () => {
                     </div>
                     <div className="text-xs text-stone-500 font-medium">
                       {vax.done ? (
-                        <>Last: {vax.date} - Next: {vax.nextDue}</>
+                        <><span style={{
+  color: vax.done
+    ? "green"
+    : vax.nextDue && new Date(vax.nextDue) < new Date()
+    ? "red"
+    : "orange"
+}}>
+  {vax.done
+    ? `Done: ${vax.date} → Next: ${vax.nextDue}`
+    : vax.nextDue
+    ? `Next due: ${vax.nextDue}`
+    : "Not scheduled"}
+</span></>
                       ) : (
                         <>Due: {vax.nextDue}</>
                       )}
@@ -1990,42 +2264,15 @@ const PawPad = () => {
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
-  );
-};
-
-const StatCard = ({ icon: Icon, value, label, color, iconColor }) => (
-  <div className={`${color} p-4 rounded-2xl border border-white/50 shadow-sm`}>
-    <Icon size={24} className={`${iconColor} mb-2`} />
-    <div className="text-2xl font-black text-[#423D38] mb-0.5">{value}</div>
-    <div className="text-[9px] font-black text-stone-500 uppercase tracking-wider">{label}</div>
-  </div>
-);
-
-const ActionCard = ({ icon: Icon, label, sub, onClick, bg, iconColor }) => (
-  <div 
-    onClick={onClick}
-    className={`${bg} p-6 rounded-[2rem] border-2 border-white shadow-sm text-center hover:shadow-lg transition-all cursor-pointer active:scale-95`}
-  >
-    <Icon size={28} className={`${iconColor} mx-auto mb-3`} />
-    <div className="text-[10px] font-black text-stone-400 uppercase tracking-wider mb-1">{sub}</div>
-    <div className="text-sm font-bold text-[#5C544E]">{label}</div>
-  </div>
-);
-
-const ProgressBar = ({ label, value, color }) => (
-  <div>
-    <div className="flex justify-between text-xs font-bold text-[#423D38] mb-2">
-      <span>{label}</span>
-      <span>{value}%</span>
-    </div>
-    <div className="h-2 bg-stone-100 rounded-full overflow-hidden">
-      <div 
-        className={`h-full ${color} rounded-full transition-all duration-500`}
-        style={{ width: `${value}%` }}
-      />
-    </div>
-  </div>
-);
+    </div>} />
+        <Route path="/claim/:id" element={<ClaimPage />} />
+        <Route path="/setup-pet" element={<SetupPet />} />
+        <Route path="/p/:id" element={<FinderView />} />
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/login" element={<LoginPage />} />
+      </Routes>
+    </Router>
+  ); // Closes the "return ("
+}; // <--- THIS IS THE MISSING "}" (Closes the "const PawPad")
 
 export default PawPad;

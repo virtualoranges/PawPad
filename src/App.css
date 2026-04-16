@@ -70,6 +70,45 @@
   }
 }
 
+:root {
+  --pawpad-orange: #E8621A;
+  --pawpad-cream: #FDFBF7;
+  --pawpad-dark: #2D2926;
+}
+
+.mobile-landing-container {
+  background-color: var(--pawpad-cream);
+  min-height: 100vh;
+  font-family: 'Inter', sans-serif;
+  color: var(--pawpad-dark);
+}
+
+.emergency-header {
+  background-color: #D32F2F; /* Urgent Red */
+  color: white;
+  padding: 1rem;
+  text-align: center;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.action-button {
+  background-color: var(--pawpad-orange);
+  color: white;
+  padding: 18px 24px;
+  border-radius: 12px;
+  font-weight: 700;
+  width: 100%;
+  box-shadow: 0 4px 14px rgba(232, 98, 26, 0.3);
+  transition: transform 0.2s ease;
+}
+
+.action-button:active {
+  transform: scale(0.96);
+}
+
+
 #next-steps {
   display: flex;
   border-top: 1px solid var(--border);
