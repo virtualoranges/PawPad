@@ -10,7 +10,7 @@ export default function Dashboard() {
 
   // THE TELEGRAM LOGIC (Now inside the component)
   const sendTelegramAlert = async () => {
-    const botToken = ""; 
+    const botToken = "8691323697:AAGgw_22PuwmFCLagb-xhXlR75SWu1Jqshg"; 
     const chatId = "385282188"; 
 
     try {
