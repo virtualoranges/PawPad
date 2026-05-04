@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { differenceInYears, differenceInMonths, format } from 'date-fns'
-import { Trash2, Plus, ArrowLeft, Camera } from 'lucide-react'
+import { Trash2, Plus, Edit3, ArrowLeft } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 import toast from 'react-hot-toast'
 import { supabase } from '@/lib/supabase'
@@ -51,10 +51,8 @@ export default function PetDetailPage() {
   const [vetInfo, setVetInfo] = useState<VetInfo | null>(null)
   const [qrTag, setQrTag] = useState<QRTag | null>(null)
   const [loading, setLoading] = useState(true)
-  const [uploadingPhoto, setUploadingPhoto] = useState(false)
-  const photoInputRef = useRef<HTMLInputElement>(null)
 
-  const { register, handleSubmit, formState: { isSubmitting } } = useForm<PetForm>({
+  const { register, handleSubmit, setValue, formState: { isSubmitting } } = useForm<PetForm>({
     resolver: zodResolver(petSchema),
     defaultValues: {
       name: pet?.name || '',
@@ -86,34 +84,6 @@ export default function PetDetailPage() {
       setLoading(false)
     })
   }, [petId])
-
-  const uploadPhoto = async (file: File) => {
-    if (!user || !petId) return
-    setUploadingPhoto(true)
-    try {
-      const ext = file.name.split('.').pop() || 'jpg'
-      const path = `${user.id}/${petId}.${ext}`
-      const { error: uploadError } = await supabase.storage
-        .from('pet-photos')
-        .upload(path, file, { upsert: true })
-      if (uploadError) throw uploadError
-      const { data: { publicUrl } } = supabase.storage
-        .from('pet-photos')
-        .getPublicUrl(path)
-      const { data: updated, error } = await supabase
-        .from('pets')
-        .update({ photo_url: publicUrl })
-        .eq('id', petId)
-        .select()
-        .single()
-      if (error) throw error
-      setPets(pets.map(p => p.id === petId ? updated : p))
-      toast.success('Photo updated!')
-    } catch {
-      toast.error('Failed to upload photo')
-    }
-    setUploadingPhoto(false)
-  }
 
   const savePet = async (data: PetForm) => {
     if (!petId) return
@@ -230,48 +200,16 @@ export default function PetDetailPage() {
       </button>
 
       <div className="flex items-center gap-6 mb-8">
-        {/* Clickable photo avatar */}
-        <div className="relative flex-shrink-0">
-          <div
-            className="w-20 h-20 rounded-2xl bg-orange-100 border-2 border-orange-200 flex items-center justify-center text-5xl overflow-hidden cursor-pointer group"
-            onClick={() => photoInputRef.current?.click()}
-            title="Click to change photo"
-          >
-            {pet.photo_url
-              ? <img src={pet.photo_url} alt={pet.name} className="w-full h-full object-cover" loading="lazy" />
-              : (pet.species === 'dog' ? '🐕' : '🐈')}
-            <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center rounded-2xl transition-opacity">
-              <Camera size={22} className="text-white" />
-            </div>
-            {uploadingPhoto && (
-              <div className="absolute inset-0 bg-white/70 flex items-center justify-center rounded-2xl">
-                <div className="w-5 h-5 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
-              </div>
-            )}
-          </div>
-          <div
-            className="absolute -bottom-1 -right-1 w-6 h-6 bg-brand-500 rounded-full flex items-center justify-center cursor-pointer shadow"
-            onClick={() => photoInputRef.current?.click()}
-          >
-            <Camera size={12} className="text-white" />
-          </div>
+        <div className="w-20 h-20 rounded-2xl bg-orange-100 border-2 border-orange-200 flex items-center justify-center text-5xl overflow-hidden flex-shrink-0">
+          {pet.photo_url ? <img src={pet.photo_url} alt={pet.name} className="w-full h-full object-cover" loading="lazy" /> : (pet.species === 'dog' ? '🐕' : '🐈')}
         </div>
-        <input
-          ref={photoInputRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={e => { const f = e.target.files?.[0]; if (f) uploadPhoto(f) }}
-        />
-
         <div>
           <h1 className="text-3xl font-heading font-bold text-stone-800">{pet.name}</h1>
           <p className="text-stone-500">{pet.breed || pet.species} {pet.birth_date && `· ${calcAge(pet.birth_date)} old`}</p>
-          <p className="text-xs text-stone-400 mt-0.5">Click photo to update</p>
         </div>
         {qrTag && (
           <div className="ml-auto p-3 bg-white rounded-2xl border-2 border-orange-200">
-            <QRCodeSVG value={`https://pawpad-app.vercel.app/qr/${qrTag.tag_code}`} size={80} />
+            <QRCodeSVG value={`https://pawpad.vercel.app/qr/${qrTag.tag_code}`} size={80} />
             <p className="text-xs text-center text-stone-400 mt-1">{qrTag.tag_code}</p>
           </div>
         )}
@@ -458,6 +396,7 @@ export default function PetDetailPage() {
             </div>
           )}
 
+          {/* Table */}
           {weightHistory.length === 0 ? (
             <p className="text-stone-400 text-sm text-center py-8">No weight records yet</p>
           ) : (
@@ -489,10 +428,6 @@ export default function PetDetailPage() {
             </button>
           </form>
         </div>
-      )}
-
-      {loading && (
-        <div className="text-center text-stone-400 text-sm mt-4">Loading pet data...</div>
       )}
     </div>
   )
