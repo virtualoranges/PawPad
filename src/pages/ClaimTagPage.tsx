@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { Tag, Check } from 'lucide-react'
+import { Tag, Check, KeyRound } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store/authStore'
@@ -19,6 +19,7 @@ export default function ClaimTagPage() {
   const { user, pets } = useAuthStore()
   const [tagInfo, setTagInfo] = useState<TagInfo | null>(null)
   const [selectedPetId, setSelectedPetId] = useState('')
+  const [activationCode, setActivationCode] = useState('')
   const [loading, setLoading] = useState(true)
   const [claiming, setClaiming] = useState(false)
   const [claimed, setClaimed] = useState(false)
@@ -29,9 +30,10 @@ export default function ClaimTagPage() {
       return
     }
     async function load() {
+      // Never request claim_code — it stays server-side
       const { data, error } = await supabase
         .from('qr_tags')
-        .select('*')
+        .select('id, tag_code, pet_id, user_id, claimed_at, is_active')
         .eq('tag_code', tagCode?.toUpperCase() || '')
         .single()
       if (error || !data) {
@@ -50,10 +52,16 @@ export default function ClaimTagPage() {
       toast.error('Please select a pet to link')
       return
     }
+    if (!activationCode.trim()) {
+      toast.error('Please enter your activation code from the tag packaging')
+      return
+    }
 
     setClaiming(true)
     try {
-      const { error } = await supabase
+      // Security: the WHERE clause checks claim_code server-side.
+      // If the code is wrong, 0 rows are updated and we show an error.
+      const { data: updatedRows, error } = await supabase
         .from('qr_tags')
         .update({
           user_id: user.id,
@@ -62,10 +70,19 @@ export default function ClaimTagPage() {
           is_active: true,
         })
         .eq('id', tagInfo.id)
+        .eq('claim_code', activationCode.trim().toUpperCase())
+        .is('user_id', null)
+        .select('id')
 
       if (error) throw error
 
-      // Send Telegram notification if user has telegram_id
+      if (!updatedRows || updatedRows.length === 0) {
+        toast.error('Invalid activation code. Check the card inside your tag packaging.')
+        setClaiming(false)
+        return
+      }
+
+      // Send Telegram confirmation to owner
       const { data: profile } = await supabase
         .from('profiles')
         .select('telegram_id')
@@ -82,16 +99,16 @@ export default function ClaimTagPage() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               chat_id: telegramId,
-              text: `✅ Tag Claimed!\n\nYou've successfully linked PAWPAD tag ${tagInfo.tag_code} to ${pet?.name || 'your pet'}.\n\nAnyone who scans this tag will see your contact info to reunite you with your pet! 🐾`,
+              text: `✅ Tag Activated!\n\nYou've successfully activated PAWPAD tag ${tagInfo.tag_code} for ${pet?.name || 'your pet'}.\n\nAnyone who scans this tag will see your contact info to help reunite you with your pet! 🐾`,
             }),
           }).catch(() => {})
         }
       }
 
       setClaimed(true)
-      toast.success(`Tag ${tagInfo.tag_code} claimed successfully! 🎉`)
+      toast.success(`Tag ${tagInfo.tag_code} activated! 🎉`)
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Failed to claim tag')
+      toast.error(err instanceof Error ? err.message : 'Failed to activate tag')
     }
     setClaiming(false)
   }
@@ -117,7 +134,7 @@ export default function ClaimTagPage() {
           <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <Check className="text-green-600" size={32} />
           </div>
-          <h1 className="text-2xl font-heading font-bold text-stone-800 mb-2">Tag Claimed! 🎉</h1>
+          <h1 className="text-2xl font-heading font-bold text-stone-800 mb-2">Tag Activated! 🎉</h1>
           <p className="text-stone-500 mb-2">
             Tag <span className="font-mono font-bold text-brand-500">{tagInfo?.tag_code}</span> is now linked to{' '}
             <span className="font-bold">{pet?.name}</span>
@@ -144,19 +161,19 @@ export default function ClaimTagPage() {
   return (
     <div className="p-6 max-w-lg mx-auto">
       <div className="mb-8">
-        <h1 className="text-3xl font-heading font-bold text-stone-800">Claim QR Tag</h1>
-        <p className="text-stone-500 mt-1">Link this tag to your pet</p>
+        <h1 className="text-3xl font-heading font-bold text-stone-800">Activate Your Tag</h1>
+        <p className="text-stone-500 mt-1">Link this PAWPAD tag to your pet</p>
       </div>
 
       <div className="clay-card p-6 mb-6">
-        <div className="flex items-center gap-4 mb-4">
+        <div className="flex items-center gap-4 mb-5">
           <div className="w-14 h-14 rounded-2xl bg-orange-100 border-2 border-orange-200 flex items-center justify-center">
             <Tag className="text-brand-500" size={28} />
           </div>
           <div>
             <h2 className="text-xl font-heading font-bold text-stone-800 font-mono">{tagInfo?.tag_code}</h2>
             <p className="text-stone-400 text-sm">
-              {ownedByMe ? 'Already owned by you' : alreadyClaimed ? 'Already claimed' : 'Available to claim'}
+              {ownedByMe ? 'Already activated by you' : alreadyClaimed ? 'Already activated' : 'Ready to activate'}
             </p>
           </div>
         </div>
@@ -164,23 +181,42 @@ export default function ClaimTagPage() {
         {alreadyClaimed && (
           <div className="bg-yellow-50 border-2 border-yellow-200 rounded-xl p-4">
             <p className="text-yellow-800 font-semibold text-sm">
-              This tag has already been claimed by another user. If you believe this is an error, please contact support.
+              This tag has already been activated by another user. If you believe this is an error, please contact support.
             </p>
           </div>
         )}
 
         {!alreadyClaimed && (
           <>
+            {/* Activation code input */}
+            <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+              <div className="flex items-center gap-2 mb-2">
+                <KeyRound size={16} className="text-blue-500" />
+                <label className="text-sm font-semibold text-blue-800">Activation Code *</label>
+              </div>
+              <input
+                type="text"
+                value={activationCode}
+                onChange={e => setActivationCode(e.target.value.toUpperCase())}
+                placeholder="e.g. A3K9M7QP"
+                className="clay-input font-mono tracking-widest text-center text-lg uppercase"
+                maxLength={12}
+              />
+              <p className="text-xs text-blue-600 mt-2">
+                Found on the card inside your PAWPAD tag packaging
+              </p>
+            </div>
+
             {pets.length === 0 ? (
               <div className="text-center py-4">
-                <p className="text-stone-500 mb-4">You need to add a pet first before claiming a tag.</p>
+                <p className="text-stone-500 mb-4">You need to add a pet first before activating a tag.</p>
                 <Link to="/pets">
                   <button className="clay-btn px-5 py-2 bg-brand-500 text-white hover:bg-brand-600">Add a Pet</button>
                 </Link>
               </div>
             ) : (
               <>
-                <div className="mb-4">
+                <div className="mb-5">
                   <label className="block text-sm font-semibold text-stone-700 mb-2">Select Pet to Link *</label>
                   <select value={selectedPetId} onChange={e => setSelectedPetId(e.target.value)} className="clay-input">
                     <option value="">Choose a pet...</option>
@@ -193,10 +229,10 @@ export default function ClaimTagPage() {
                 </div>
                 <button
                   onClick={claimTag}
-                  disabled={claiming || !selectedPetId}
-                  className="clay-btn w-full py-3 bg-brand-500 text-white hover:bg-brand-600 disabled:opacity-60"
+                  disabled={claiming || !selectedPetId || !activationCode.trim()}
+                  className="clay-btn w-full py-3 bg-brand-500 text-white hover:bg-brand-600 disabled:opacity-60 font-heading font-bold"
                 >
-                  {claiming ? 'Claiming...' : `Claim Tag ${tagInfo?.tag_code} 🐾`}
+                  {claiming ? 'Activating...' : `Activate Tag ${tagInfo?.tag_code} 🐾`}
                 </button>
               </>
             )}
@@ -207,10 +243,11 @@ export default function ClaimTagPage() {
       <div className="clay-card p-4 bg-blue-50 border-blue-200">
         <h3 className="font-heading font-semibold text-blue-800 mb-2">How it works</h3>
         <ul className="text-sm text-blue-700 space-y-1">
-          <li>• Link this tag to your pet</li>
+          <li>• Enter the activation code from your tag packaging</li>
+          <li>• Link this tag to your pet's profile</li>
           <li>• Attach the physical tag to your pet's collar</li>
-          <li>• If your pet gets lost, anyone who scans the tag will see your contact info</li>
-          <li>• You'll get a Telegram notification when the tag is scanned</li>
+          <li>• If your pet gets lost, anyone who scans the tag sees your contact info</li>
+          <li>• You get an instant Telegram message with the finder's location</li>
         </ul>
       </div>
     </div>

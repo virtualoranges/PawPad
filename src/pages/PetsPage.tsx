@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Plus, PawPrint } from 'lucide-react'
+import { Plus, Camera } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -31,14 +31,43 @@ function calcAge(birthDate?: string) {
 export default function PetsPage() {
   const { pets, setPets, user } = useAuthStore()
   const [showModal, setShowModal] = useState(false)
+  const [photoFile, setPhotoFile] = useState<File | null>(null)
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const photoInputRef = useRef<HTMLInputElement>(null)
+
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: { species: 'dog' },
   })
 
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setPhotoFile(file)
+    setPhotoPreview(URL.createObjectURL(file))
+  }
+
   const onSubmit = async (data: FormData) => {
     if (!user) return
+    setUploadingPhoto(true)
     try {
+      let photoUrl: string | null = null
+
+      if (photoFile) {
+        const ext = photoFile.name.split('.').pop() || 'jpg'
+        const path = `${user.id}/${Date.now()}.${ext}`
+        const { error: uploadError } = await supabase.storage
+          .from('pet-photos')
+          .upload(path, photoFile, { upsert: true })
+        if (!uploadError) {
+          const { data: { publicUrl } } = supabase.storage
+            .from('pet-photos')
+            .getPublicUrl(path)
+          photoUrl = publicUrl
+        }
+      }
+
       const { data: newPet, error } = await supabase
         .from('pets')
         .insert({
@@ -49,6 +78,7 @@ export default function PetsPage() {
           birth_date: data.birth_date || null,
           gender: data.gender || null,
           color: data.color || null,
+          photo_url: photoUrl,
         })
         .select()
         .single()
@@ -57,9 +87,19 @@ export default function PetsPage() {
       toast.success(`${data.name} added! 🐾`)
       reset()
       setShowModal(false)
+      setPhotoFile(null)
+      setPhotoPreview(null)
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Failed to add pet')
     }
+    setUploadingPhoto(false)
+  }
+
+  const closeModal = () => {
+    setShowModal(false)
+    reset()
+    setPhotoFile(null)
+    setPhotoPreview(null)
   }
 
   return (
@@ -137,8 +177,37 @@ export default function PetsPage() {
       {/* Add Pet Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="clay-card p-8 w-full max-w-md">
+          <div className="clay-card p-8 w-full max-w-md max-h-[90vh] overflow-y-auto">
             <h2 className="text-2xl font-heading font-bold text-stone-800 mb-6">Add New Pet</h2>
+
+            {/* Photo Upload */}
+            <div className="mb-6 flex flex-col items-center">
+              <div
+                className="w-28 h-28 rounded-2xl bg-orange-50 border-2 border-dashed border-orange-300 flex items-center justify-center cursor-pointer overflow-hidden relative group hover:border-orange-400 transition-colors"
+                onClick={() => photoInputRef.current?.click()}
+              >
+                {photoPreview ? (
+                  <img src={photoPreview} alt="Preview" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="text-center p-2">
+                    <Camera size={28} className="text-orange-300 mx-auto mb-1" />
+                    <span className="text-xs text-orange-400 font-medium">Add Photo</span>
+                  </div>
+                )}
+                <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 flex items-center justify-center rounded-2xl transition-opacity">
+                  <Camera size={22} className="text-white" />
+                </div>
+              </div>
+              <input
+                ref={photoInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handlePhotoChange}
+              />
+              <p className="text-xs text-stone-400 mt-2">Click to add a pet photo (optional)</p>
+            </div>
+
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <div>
                 <label className="block text-sm font-semibold text-stone-700 mb-2">Pet Name *</label>
@@ -175,13 +244,13 @@ export default function PetsPage() {
                 <input {...register('color')} placeholder="Golden, Brown, etc." className="clay-input" />
               </div>
               <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => { setShowModal(false); reset() }}
+                <button type="button" onClick={closeModal}
                   className="clay-btn flex-1 py-3 bg-stone-100 text-stone-600 hover:bg-stone-200">
                   Cancel
                 </button>
-                <button type="submit" disabled={isSubmitting}
+                <button type="submit" disabled={isSubmitting || uploadingPhoto}
                   className="clay-btn flex-1 py-3 bg-brand-500 text-white hover:bg-brand-600 disabled:opacity-60">
-                  {isSubmitting ? 'Adding...' : 'Add Pet 🐾'}
+                  {isSubmitting || uploadingPhoto ? 'Adding...' : 'Add Pet 🐾'}
                 </button>
               </div>
             </form>
